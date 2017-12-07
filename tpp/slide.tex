@@ -1,0 +1,648 @@
+\documentclass[dvipdfmx,cjk,xcolor=dvipsnames,envcountsect,notheorems,12pt]{beamer}
+% * 16:9 のスライドを作るときは、aspectratio=169 を documentclass のオプションに追加する
+% * 印刷用の配布資料を作るときは handout を documentclass のオプションに追加する
+%   （overlay が全て一つのスライドに出力される）
+
+\usepackage{pxjahyper}% しおりの文字化け対策 (なくても良い)
+\usepackage{amsmath,amssymb,amsfonts,amsthm,ascmac,cases,bm,pifont}
+\usepackage{graphicx}
+\usepackage[thicklines]{cancel}
+\usepackage{url}
+\usepackage{newtxmath}
+\usepackage{bussproofs}
+
+% スライドのテーマ
+\usetheme{sumiilab}
+% ベースになる色を指定できる
+%\usecolortheme[named=Magenta]{structure}
+% 数式の文字が細くて見難い時は serif の代わりに bold にしましょう
+%\mathversion{bold}
+
+%% ===============================================
+%% スライドの表紙および PDF に表示される情報
+%% ===============================================
+
+%% 発表会の名前とか（省略可）
+\session{TPP 2017}
+%% スライドのタイトル
+\title{Formal Verification of the Correspondence between Call-by-Need and Call-by-Name}
+%% 必要ならば、サブタイトルも
+%\subtitle{}
+%% 発表者のお名前
+\author{Masayuki Mizuno\\Joint work with Eijiro Sumii}
+%% 発表者の所属（[] 内は短い名前）
+%\institute[東北大学　住井・松田研]{工学部　電気情報物理工学科\\住井・松田研究室}% 学部生
+\institute[東北大学 住井・松田研]{Tohoku University}% 院生
+%% 発表する日
+\date{December 7, 2017}
+
+%% ===============================================
+%% 自動挿入される目次ページの設定（削除しても可）
+%% ===============================================
+
+%% section の先頭に自動挿入される目次ページ（削除すると、表示されなくなる）
+\AtBeginSection[]{
+\begin{frame}
+  \frametitle{アウトライン}
+  \tableofcontents[sectionstyle=show/shaded,subsectionstyle=show/show/hide]
+\end{frame}}
+%%% subsection の先頭に自動挿入される目次ページ（削除すると、表示されなくなる）
+\AtBeginSubsection[]{
+\begin{frame}
+  \frametitle{アウトライン}
+  \tableofcontents[sectionstyle=show/shaded,subsectionstyle=show/shaded/hide]
+\end{frame}}
+%
+%% 現在の section 以外を非表示にする場合は以下のようにする
+
+%% \AtBeginSection[]{
+%% \begin{frame}
+%%   \frametitle{アウトライン}
+%%   \tableofcontents[sectionstyle=show/hide,subsectionstyle=show/show/hide]
+%% \end{frame}}
+%% \AtBeginSubsection[]{
+%% \begin{frame}
+%%   \frametitle{アウトライン}
+%%   \tableofcontents[sectionstyle=show/hide,subsectionstyle=show/shaded/hide]
+%% \end{frame}}
+
+%% ===============================================
+%% 定理環境の設定
+%% ===============================================
+
+%\setbeamertemplate{theorems}[numbered]% 定理環境に番号を付ける
+\theoremstyle{definition}
+\newtheorem{definition}{定義}
+\newtheorem{axiom}{公理}
+\newtheorem{theorem}{定理}
+\newtheorem{lemma}{補題}
+\newtheorem{corollary}{系}
+\newtheorem{proposition}{命題}
+
+%% ===============================================
+%% ソースコードの設定
+%% ===============================================
+
+\usepackage{listings,jlisting}
+%\usepackage[scale=0.9]{DejaVuSansMono}
+
+\definecolor{DarkGreen}{rgb}{0,0.5,0}
+% プログラミング言語と表示するフォント等の設定
+\lstset{
+  language={[Objective]Caml},% プログラミング言語
+  basicstyle={\ttfamily\small},% ソースコードのテキストのスタイル
+  keywordstyle={\bfseries},% 予約語等のキーワードのスタイル
+  commentstyle={},% コメントのスタイル
+  stringstyle={},% 文字列のスタイル
+  frame=trlb,% ソースコードの枠線の設定 (none だと非表示)
+  numbers=none,% 行番号の表示 (left だと左に表示)
+  numberstyle={},% 行番号のスタイル
+  xleftmargin=5pt,% 左余白
+  xrightmargin=5pt,% 右余白
+  keepspaces=true,% 空白を表示する
+  mathescape,% $ で囲った部分を数式として表示する ($ がソースコード中で使えなくなるので注意)
+  % 手動強調表示の設定
+  moredelim=[is][\itshape]{@/}{/@},
+  moredelim=[is][\color{red}]{@r\{}{\}@},
+  moredelim=[is][\color{blue}]{@b\{}{\}@},
+  moredelim=[is][\color{DarkGreen}]{@g\{}{\}@},
+}
+
+\newcommand{\LET}[3]{\mathbf{let}~#1=#2~\mathbf{in}~#3}
+\newcommand{\EXPANDLET}[1]{#1^\pitchfork}
+\newcommand{\SIZE}[2]{\parallel #1 \parallel_{#2}}
+\newcommand{\FULLBETA}{\xrightarrow{\beta}}
+\newcommand{\CALLBYNEED}{\xrightarrow{\mathrm{need}}}
+\newcommand{\CALLBYNEEDI}{\xrightarrow{\mathrm{I}}}
+\newcommand{\CALLBYNEEDVCA}{\xrightarrow{\mathrm{VCA}}}
+\newcommand{\CALLBYNAME}{\xrightarrow{\mathrm{name}}}
+\newcommand{\DEMAND}[2]{\mathbf{needs}(#2, #1)}
+\newcommand{\STUCK}[2]{\mathbf{needs}_\mathrm{n}(#2, #1)}
+\newcommand{\RTCLOS}[1]{#1_*}
+
+%% ===============================================
+%% 本文
+%% ===============================================
+\begin{document}
+\frame[plain]{\titlepage}% タイトルページ
+
+\begin{frame}
+	\frametitle{動機: 非正格言語の仕様と実装のギャップ}
+	\begin{itemize}
+		\item 名前呼び: 非正格言語の(ハイレベルな)仕様
+		\item 必要呼び: 非正格言語の実装
+	\end{itemize}
+	\vfill
+	\begin{center}
+		\Large
+		これらの対応を検証したい
+	\end{center}
+\end{frame}
+
+\begin{frame}
+	\frametitle{$\lambda$計算の基本: full-$\beta$簡約}
+	\begin{itemize}
+		\item 簡約基は複数存在しうる
+			\begin{itemize}
+				\item $\underline{(\lambda xy.~y)~((\lambda x.~xx)~(\lambda x.~xx))}$
+				\item $(\lambda xy.~y)~\underline{((\lambda x.~xx)~(\lambda x.~xx))}$
+			\end{itemize}
+		\item 下手に簡約基を選ぶと無限ループに
+			\begin{itemize}
+				\item 
+					$\underline{(\lambda xy.~y)~((\lambda x.~xx)~(\lambda x.~xx))}$ \\
+					$\FULLBETA \lambda y.~y$
+				\item 
+					$(\lambda xy.~y)~\underline{((\lambda x.~xx)~(\lambda x.~xx))}$ \\
+					$\FULLBETA (\lambda xy.~y)~((\lambda x.~xx)~(\lambda x.~xx))$
+			\end{itemize}
+	\end{itemize}
+\end{frame}
+
+\begin{frame}
+	\frametitle{非正格な言語の理論的背景: 名前呼び}
+	\begin{definition}[名前呼び]
+		\Large 関数呼び出し以前に引数を簡約せず，$\lambda$抽象の中も簡約しない評価戦略
+	\end{definition}
+	\begin{itemize}
+		\item full-$\beta$簡約で$\lambda$抽象に評価できる項は名前呼びでも$\lambda$抽象まで評価できる\\
+	\end{itemize}
+	\large \[\underline{(\lambda xy.~x)~((\lambda x.~xx)~(\lambda x.~xx))} \RTCLOS{\CALLBYNAME} \lambda y.~y\]
+\end{frame}
+
+\begin{frame}
+	\frametitle{名前呼びの問題点}
+	\begin{itemize}
+		\item 関数引数の簡約基が複製される
+			\begin{itemize}
+				\item 余計な簡約が必要になることも
+			\end{itemize}
+	\end{itemize}
+	\vfill
+	\begin{itemize}
+		\item $(\lambda x.~xx)~\underline{((\lambda x.~x)~(\lambda x.~x))}$ \\
+			$\FULLBETA (\lambda x.~xx)~(\lambda x.~x)$
+		\item $\underline{(\lambda x.~xx)~((\lambda x.~x)~(\lambda x.~x))}$ \\
+			$\CALLBYNAME (\lambda x.~x)~(\lambda x.~x)~((\lambda x.~x)~(\lambda x.~x))$
+	\end{itemize}
+\end{frame}
+
+\begin{frame}
+	\frametitle{名前呼びの改良: 必要呼び}
+	\begin{itemize}
+		\item 一度関数引数を評価したら値を覚えて使い回す
+			\begin{itemize}
+				\item 余計な簡約が不要に
+			\end{itemize}
+			\[\begin{array}{l}
+				(\lambda x.~xx)~((\lambda x.~x)~(\lambda x.~x)) \\
+				\CALLBYNEED \LET{x}{(\lambda x.~x)~(\lambda x.~x)}{x~x} \\
+				\RTCLOS{\CALLBYNEED} \LET{x}{\lambda x.~x}{x~x}
+			\end{array}\]
+		\item 名前呼びと振る舞いが一致してほしい
+	\end{itemize}
+\end{frame}
+
+\begin{frame}
+	\frametitle{本研究の概要}
+	\begin{itemize}
+		\item 必要呼び$\lambda$計算[Ariola+ 1995]を検証に適するよう変形しCoqで定式化
+			\begin{itemize}
+				\item De Bruijnインデックス
+				\item 評価文脈の排除
+			\end{itemize}
+		\item 名前呼びとの評価の対応に既存研究\\より簡単な証明を考案，Coqで定式化
+			\begin{itemize}
+				\item 標準化定理
+			\end{itemize}
+	\end{itemize}
+\end{frame}
+
+\section*{アウトライン}
+\begin{frame}
+  \frametitle{アウトライン}
+  \tableofcontents[sectionstyle=show,subsectionstyle=hide]
+\end{frame}
+
+\section{対象言語: 名前呼び$\lambda$計算と必要呼び$\lambda$計算}
+
+\begin{frame}
+	\frametitle{名前呼び$\lambda$計算}
+	\[ \begin{array}{llcl}
+		\mbox{Terms}\quad & L,M,N\quad & ::=\quad & x~|~V~|~M~N \\
+		\mbox{Values (WHNF)}\quad & V\quad & ::=\quad & \lambda x.M \\
+		\mbox{Evaluation contexts}\quad & E_\mathrm{n}\quad & ::=\quad & [] ~|~ E_\mathrm{n}~M \\
+	\end{array} \]
+	\[ \begin{array}{lrcl}
+		(\beta)\quad & (\lambda x.M)N & \rightarrow & M[x \mapsto N] \\
+	\end{array} \]
+	\begin{itemize}
+		\item 簡約は決定的
+		\item 行き詰まり状態は全て$E_\mathrm{n}[x]$の形
+	\end{itemize}
+\end{frame}
+
+\begin{frame}
+	\begin{lemma}[名前呼び$\lambda$計算の決定性]
+	\begin{itemize}
+		\item $\CALLBYNAME$は部分関数
+		\item $E_\mathrm{n}[x]=E'_\mathrm{n}[y]$ならば$x=y$
+		\item 任意の$M$について，以下のうちただ一つが成り立つ
+			\begin{enumerate}
+				\item $M$は値
+				\item $M=E_\mathrm{n}[x]$となる$E_\mathrm{n}$と$x$が存在する
+				\item $M$は$\CALLBYNAME$で簡約できる
+			\end{enumerate}
+	\end{itemize}
+	\end{lemma}
+\end{frame}
+
+\begin{frame}
+	\frametitle{名前呼びの性質: 標準化定理の2つの系}
+	\large
+	\begin{theorem}[正規化定理]
+		$M$はfull-$\beta$簡約で$\lambda$抽象に評価できるならば，
+		$M$は名前呼びの簡約でも$\lambda$抽象に評価できる
+	\end{theorem}
+	\begin{theorem}[準正規化定理]
+		$M$はfull-$\beta$簡約で$\lambda$抽象に評価できるならば，
+		${\CALLBYNAME}\circ{\RTCLOS{\FULLBETA}}$による$M$の簡約は必ず止まる
+	\end{theorem}
+	\begin{itemize}
+		\item 必要呼びとの対応の証明に用いる
+	\end{itemize}
+\end{frame}
+
+\begin{frame}
+	\frametitle{必要呼び$\lambda$計算[Ariola+ 1995]}
+	{\normalsize
+		\[\begin{array}{llcl}
+			\mbox{Terms} & M,N & ::= & x~|~V~|~M~N~|~\LET{x}{M}{N} \\
+			\mbox{Values} & V & ::= & \lambda x.~M \\
+			\mbox{Answers} & A & ::= & V~|~\LET{x}{M}{A} \\
+			\mbox{Evaluation contexts} & E,E' & ::= & [] ~|~ E~M ~|~\LET{x}{M}{E} \\
+			& & & ~|~ \LET{x}{E}{E'[x]} \\
+		\end{array}\] }
+	{\normalsize
+		\[ \begin{array}{lrcl}
+			(I) & (\lambda x.M)N & \rightarrow & \LET{x}{N}{M} \\
+			(V) & \LET{x}{V}{E[x]} & \rightarrow & \LET{x}{V}{E[V]} \\
+			(C) & (\LET{x}{M}{A})~N & \rightarrow & \LET{x}{M}{A~N} \\
+			(A) & \LET{y}{(\LET{x}{M}{A})}{E[y]} & \rightarrow \\
+			& \LET{x}{M}{\LET{y}{A}{E[y]}} & \\
+		\end{array} \]}
+	{\normalsize
+		\[ \begin{array}{ll}
+			\CALLBYNEEDI & \mbox{簡約規則(I)のみ用いる簡約}\\
+			\CALLBYNEEDVCA & \mbox{簡約規則(V)，(C)と(A)のみ用いる簡約}\\
+		\end{array} \]}
+\end{frame}
+
+\begin{frame}
+	\begin{lemma}[必要呼び$\lambda$計算の決定性]
+	\begin{itemize}
+		\item $\CALLBYNEEDI$は部分関数
+		\item $\CALLBYNEEDVCA$は部分関数
+		\item $E[x]=E'[y]$ならば$x=y$
+		\item 任意の$M$について，以下のうちただ一つが成り立つ
+			\begin{enumerate}
+				\item $M$はanswer
+				\item $M=E[x]$となる$E$と$x$が存在する
+				\item $M$は$\CALLBYNEEDI$で簡約できる
+				\item $M$は$\CALLBYNEEDVCA$で簡約できる
+			\end{enumerate}
+	\end{itemize}
+	\end{lemma}
+\end{frame}
+
+\section{主定理の証明のアウトライン}
+
+\begin{frame}
+	\frametitle{本研究の主定理: 名前呼びと必要呼びの評価の対応}
+	\large
+	\begin{theorem}[必要呼び評価の健全性]
+		$M$が必要呼びの簡約によってanswerに評価できるならば，
+		$M$に対応する項$N$は名前呼びの簡約によって$\lambda$抽象に評価される
+	\end{theorem}
+	\begin{theorem}[必要呼び評価の完全性]
+		$M$が名前呼びの簡約によって$\lambda$抽象に評価できるならば，
+		$M$に対応する項$N$は必要呼びの簡約によってanswerに評価される
+	\end{theorem}
+\end{frame}
+
+\begin{frame}[fragile]
+	\frametitle{先行研究の証明方法}
+	\begin{itemize}
+		\item \verb|[Ariola+ 1995]|はAriolaらの研究とMaraistらの研究を合わせたもの
+	\end{itemize}
+	\begin{itembox}[c]{AriolaとFelleisenの証明[Ariola+ 1997]}
+		\begin{itemize}
+			\item Informalに定義されたグラフに基づく
+		\end{itemize}
+	\end{itembox}
+	\begin{itembox}[c]{Maraistらの証明[Maraist+ 1998]}
+		\begin{itemize}
+			\item マーク付きの簡約と簡約位置を陽に扱うのが煩雑
+			\item 本研究で一部参考
+		\end{itemize}
+	\end{itembox}
+\end{frame}
+
+\begin{frame}[fragile]
+	\Large
+	\begin{definition}[項同士の対応関係]
+	\[ \begin{array}{rcl}
+		\EXPANDLET{x} & = & x \\
+		\EXPANDLET{(\lambda x. M)} & = & \lambda x. \EXPANDLET{M} \\
+		\EXPANDLET{(M~N)} & = & \EXPANDLET{M}~\EXPANDLET{N} \\
+		\EXPANDLET{(\LET{x}{M}{N})} & = & \EXPANDLET{N}[x \mapsto \EXPANDLET{M}] \\
+	\end{array} \]
+	\end{definition}
+	\begin{itemize}
+		\item $\mathbf{let}$を全て展開する関数
+		\item マークを除くと[Maraist+ 1998]と一致
+	\end{itemize}
+\end{frame}
+
+\begin{frame}
+	\begin{lemma}[1ステップの対応]
+	\begin{itemize}
+		\item $\EXPANDLET{A}$は値
+		\item 任意の$E$と$x$について，$\EXPANDLET{E[x]} = E_\mathrm{n}[x]$となる$E_\mathrm{n}$が存在
+		\item $M \CALLBYNEEDVCA N$ならば$\EXPANDLET{M} = \EXPANDLET{N}$
+		\item $M \CALLBYNEEDI N$ならば$\EXPANDLET{M}{\CALLBYNAME}\circ{\RTCLOS{\FULLBETA}} \EXPANDLET{N}$
+	\end{itemize}
+	\end{lemma}
+\end{frame}
+
+\begin{frame}
+	\frametitle{再掲: 名前呼びと必要呼びの評価の対応}
+	\Large
+	\begin{theorem}[必要呼び評価の健全性]
+		$M\RTCLOS{\CALLBYNEED}A$ならば，
+		$\EXPANDLET{M}\RTCLOS{\CALLBYNAME}V$となるような値$V$が存在する
+	\end{theorem}
+	\begin{theorem}[必要呼び評価の完全性]
+		$\EXPANDLET{M}\RTCLOS{\CALLBYNAME}V$ならば，
+		$M\RTCLOS{\CALLBYNEED}A$となるようなanswer $A$が存在する
+	\end{theorem}
+	\begin{itemize}
+		\item 評価結果$A$と$V$の間には$V\RTCLOS{\FULLBETA}\EXPANDLET{A}$が\\成り立つ(本発表では詳細は省きます)
+	\end{itemize}
+\end{frame}
+
+\begin{frame}
+	\frametitle{必要呼び評価の健全性の証明}
+	\begin{proof}
+		\Large
+		$M\RTCLOS{\CALLBYNEED}A$と仮定すると，
+		1ステップの対応により$\EXPANDLET{M}\RTCLOS{\FULLBETA}\EXPANDLET{A}$\\
+		\medskip
+		1ステップの対応により$\EXPANDLET{A}$は値であるから，正規化定理により$\EXPANDLET{M}\RTCLOS{\CALLBYNAME}V$となるような値$V$が存在する
+	\end{proof}
+\end{frame}
+
+\begin{frame}
+	\frametitle{完全性の証明の困難な点}
+	\begin{itemize}
+		\item Administrativeな簡約が止まらないかもしれない
+			\begin{itemize}
+				\item $M\CALLBYNEEDVCA N$ならば$\EXPANDLET{M}=\EXPANDLET{N}$
+			\end{itemize}
+		\item \textbf{let}で共有されている部分がすべて簡約される
+			\begin{itemize}
+				\item $M\CALLBYNEEDI N$ならば$\EXPANDLET{M}{\CALLBYNAME}\circ{\RTCLOS{\FULLBETA}}\EXPANDLET{N}$
+				\item $\lambda$抽象の中も簡約されうる
+			\end{itemize}
+	\end{itemize}
+\end{frame}
+
+\begin{frame}
+	\frametitle{$\CALLBYNEEDVCA$の正規化性}
+	\Large
+	\begin{proof}
+		{[Maraist+ 1998]}の重み付けを変形したものにより証明
+		{\normalsize \[ \begin{array}{rcl}
+		\SIZE{x}{s} & = & s(x) \\
+		\SIZE{\lambda x. M}{s} & = & \SIZE{M}{s \circ [x \mapsto 1]} \\
+		\SIZE{M~N}{s} & = & 2\SIZE{M}{s}+2\SIZE{N}{s} \\
+		\SIZE{\LET{x}{M}{N}}{s} & = & 2\SIZE{M}{s}+\SIZE{N}{s \circ [x \mapsto 1+\SIZE{M}{s}]}
+		\end{array} \]}
+	\end{proof}
+\end{frame}
+
+\begin{frame}
+	\frametitle{必要呼びの完全性の証明(1/3)}
+	\large
+	\begin{proof}
+		$\EXPANDLET{M}\RTCLOS{\CALLBYNAME}V$と仮定する．\\
+		\smallskip
+		まず，$\CALLBYNEED$によって$M$が正規化されることを示す．\\
+		準正規化定理により，${\CALLBYNAME}\circ{\RTCLOS{\FULLBETA}}$による$\EXPANDLET{M}$の簡約は停止する．
+		よって，$\CALLBYNEEDI$による簡約は${\CALLBYNAME}\circ{\RTCLOS{\FULLBETA}}$による簡約に対応している(1ステップの対応)ため，停止する．\\
+		また，$\CALLBYNEEDVCA$の簡約も停止するため，
+		$\CALLBYNEED$ ($= {\CALLBYNEEDI}\cup{\CALLBYNEEDVCA}$)による簡約は停止する．
+		\phantom\qedhere
+	\end{proof}
+\end{frame}
+
+\begin{frame}
+	\frametitle{必要呼びの完全性の証明(2/3)}
+	\large
+	\begin{proof}
+		次に，正規形$N$がanswerであることを示す．\\
+		必要呼び$\lambda$計算の決定性により，$N$はanswerまたは行き詰まり状態$E[x]$である．\\
+		$N$は行き詰まり状態$E[x]$と仮定すると，
+		1ステップの対応により
+		$\EXPANDLET{E[x]}=E_\mathrm{n}[x]$
+		となるような$E_\mathrm{n}$が存在し，
+		加えて$\EXPANDLET{M}\RTCLOS{\FULLBETA}\EXPANDLET{N}$が成り立つ．\phantom\qedhere
+	\end{proof}
+\end{frame}
+
+\begin{frame}
+	\frametitle{必要呼びの完全性の証明(3/3)}
+	\large
+	\begin{proof}
+		ここで，full-$\beta$簡約の合流性により，
+		$E_\mathrm{n}[x]\RTCLOS{\FULLBETA}L$かつ
+		$A\RTCLOS{\FULLBETA}L$となるような$L$が存在する．
+		名前呼び$\lambda$計算における値であることと行き詰まり状態であることはfull-$\beta$簡約により保存されるため，
+		$L$は値かつ行き詰まり状態となってしまう．
+		これは名前呼び$\lambda$計算の決定性に矛盾する．
+	\end{proof}
+\end{frame}
+
+\section{Coqによる検証のポイント}
+
+\subsection{束縛の表現}
+
+\begin{frame}
+	\frametitle{名前による束縛の表現の問題点}
+	\begin{itemize}
+		\item 項の等価性がCoqの等価性でなく\mbox{$\alpha$等価性}となる
+			\[ \lambda x.\lambda y.x \overset{\alpha}{=} \lambda a.\lambda b.a \]
+		\item Captureを避ける必要がある
+			\[\begin{array}{l}
+				[y \mapsto x](\lambda x.y) \\
+				\overset{\alpha}{\cancel{=}}~\lambda x.x
+			\end{array}\]
+	\end{itemize}
+\end{frame}
+
+\begin{frame}
+	\frametitle{De Bruijnインデックスによる束縛の表現}
+	\begin{itemize}
+		\item 内側から数えて何番目の束縛かで表現
+			{\LARGE \[\begin{array}{lcl}
+				\lambda x.x~(\lambda y.x~y) & \Rightarrow & \lambda.0~(\lambda.1~0)
+			\end{array}\]}
+		\item $\alpha$等価な式は文面上も同じ
+			{\LARGE \[\begin{array}{lcl}
+				\lambda x.\lambda y.x & \Rightarrow & \lambda.\lambda.1 \\
+				\lambda a.\lambda b.a & \Rightarrow & \lambda.\lambda.1 \\
+			\end{array}\]}
+	\end{itemize}
+\end{frame}
+
+\subsection{評価文脈の除去}
+
+\begin{frame}[fragile]
+	\frametitle{評価文脈で困る例: 必要呼び$\lambda$計算の決定性}
+\begin{lstlisting}
+Lemma answer_or_stuck_or_reducible M :
+  answer M
+  \/ (exists E x,
+    evalctx E /\ M = E.[tvar x] /\ bv E <= x)
+  \/ (exists E L N,
+    evalctx E /\ M = E.[L] /\ reduceI L N)
+  \/ (exists E L N,
+    evalctx E /\ M = E.[L] /\ reduceVCA L N).
+\end{lstlisting}
+	\begin{itemize}
+		\item $M$についての帰納法で証明を試みる
+	\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+	\frametitle{必要呼び$\lambda$計算の決定性: $M=x$のケース}
+\begin{lstlisting}
+x : var
+============================
+answer M
+\/ (exists E y,
+  evalctx E /\ tvar x = E.[tvar y]
+  /\ bv E <= y)
+\/ (exists E L N,
+  evalctx E /\ tvar x = E.[L] /\ reduceI L N)
+\/ (exists E L N,
+  evalctx E /\ tvar x = E.[L]
+  /\ reduceVCA L N)
+\end{lstlisting}
+	\begin{itemize}
+		\item $E$が$[]$のとき，明らかに成り立つ
+	\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+	\frametitle{必要呼び$\lambda$計算の決定性: $M=x$のケース}
+	\begin{itemize}
+		\item しかし，自動証明に失敗してしまう
+	\end{itemize}
+\begin{lstlisting}
+Coq < eauto.
+x : var
+============================
+answer M
+\/ (exists E y,
+  evalctx E /\ tvar x = E.[tvar y]
+  /\ bv E <= y)
+\/ (exists E L N,
+  evalctx E /\ tvar x = E.[L] /\ reduceI L N)
+\/ (exists E L N,
+  evalctx E /\ tvar x = E.[L]
+  /\ reduceVCA L N)
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+	\frametitle{なぜ自動証明に失敗するか？}
+\Large
+\begin{lstlisting}
+exists E y, evalctx E /\
+  tvar x = E.[tvar y] /\ bv E <= y
+\end{lstlisting}
+	を証明するためには，
+\begin{lstlisting}
+tvar x = E.[tvar y]
+\end{lstlisting}
+	となるような$E$を探さなくてはならない
+	\vfill
+	\begin{center}$\Downarrow$\end{center} % XXX 雑
+\vfill
+	\begin{center}
+		高階単一化が必要
+	\end{center}
+\end{frame}
+
+\begin{frame}
+	\frametitle{解決策: 評価文脈の除去}
+	\begin{itemize}
+		\item 評価文脈のルールを簡約規則に展開
+			\begin{itemize}
+				\item $\FULLBETA$，$\CALLBYNAME$，$\CALLBYNEEDI$と$\CALLBYNEEDVCA$
+			\end{itemize}
+		\item 行き詰まり状態を表す述語の導入
+			\begin{itemize}
+				\item $\STUCK{x}{M}~(\iff \exists E. M=E_\mathrm{n}[x])$と$\DEMAND{x}{M}~(\iff \exists E. M=E[x])$
+			\end{itemize}
+		\item 評価規則\\$(V)~{\LET{x}{V}{E[x]}}~\rightarrow~{\LET{x}{V}{E[V]}}$
+			を代入に変更
+	\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+	\frametitle{自動証明が回る例: 必要呼び$\lambda$計算の決定性}
+\begin{lstlisting}
+Lemma answer_or_stuck_or_reducible M :
+  answer M \/
+  (exists x, needs M x) \/
+  (exists N, reduceI M N) \/
+  (exists N, reduceVCA M N).
+Proof.
+  induction M as
+    [|? [Hanswer|[[]|[[]|[]]]]
+    ||? [Hanswer|[[]|[[]|[]]]]
+      ? [|[[[]]|[[]|[]]]]]; eauto 6;
+    inversion Hanswer; subst; eauto 6.
+Qed.
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}
+	\frametitle{完全性の証明の補足}
+	\begin{itemize}
+		\item ${\CALLBYNAME}\circ{\RTCLOS{\FULLBETA}}$による$\EXPANDLET{M}$の簡約が必ず停止することはaccessibility predicate \lstinline|Acc|で表現
+		\item 必要呼び簡約の停止性は，\lstinline|Acc|についての帰納法の内側で$\CALLBYNEEDVCA$が停止することによる整礎帰納法を回して証明
+	\end{itemize}
+\end{frame}
+
+\section{まとめ}
+
+\begin{frame}
+	\frametitle{まとめ}
+	\begin{itemize}
+		\item 必要呼び$\lambda$計算[Ariola+ 1995]を検証に適するよう変形しCoqで定式化
+			\begin{itemize}
+				\item De Bruijnインデックス
+				\item 評価文脈の排除
+			\end{itemize}
+		\item 名前呼びとの評価の対応に既存研究\\より簡単な証明を考案，Coqで定式化
+			\begin{itemize}
+				\item 標準化定理
+			\end{itemize}
+	\end{itemize}
+\end{frame}
+
+\end{document}
+
