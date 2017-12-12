@@ -8,13 +8,13 @@ Inductive cbn : relation term :=
       cbn t1 t1' ->
       cbn (tapp t1 t2) (tapp t1' t2).
 
-Inductive stuck_in_var : var -> term -> Prop :=
-  | stuck_in_var_here x : stuck_in_var x (tvar x)
-  | stuck_in_var_app x t1 t2 :
-      stuck_in_var x t1 ->
-      stuck_in_var x (tapp t1 t2).
+Inductive needsn : term -> var -> Prop :=
+  | needsn_hole x : needsn (tvar x) x
+  | needsn_appl x t1 t2 :
+      needsn t1 x ->
+      needsn (tapp t1 t2) x.
 
-Hint Constructors cbn stuck_in_var.
+Hint Constructors cbn needsn.
 Local Hint Constructors clos_refl_trans.
 
 Lemma ecbn_appabs t11 t2 t' :
@@ -53,10 +53,10 @@ Lemma cbn_multi_rename t t' r :
 Proof. induction 1; eauto. Qed.
 Hint Resolve cbn_multi_rename.
 
-Lemma stuck_in_var_subst x y s t :
-  stuck_in_var x t ->
-  stuck_in_var y (s x) ->
-  stuck_in_var y t.[s].
+Lemma needsn_subst x y s t :
+  needsn t x ->
+  needsn (s x) y ->
+  needsn t.[s] y.
 Proof. induction 1; simpl; eauto. Qed.
 
 Lemma cbn_subst t t' s :
@@ -73,13 +73,13 @@ Lemma cbn_subst' x s s' t t0 :
   (forall x, clos_refl_trans _ red (s x) (s' x)) ->
   cbn (s x) t0 ->
   clos_refl_trans _ red t0 (s' x) ->
-  stuck_in_var x t ->
+  needsn t x ->
   exists t', cbn t.[s] t' /\ clos_refl_trans _ red t' t.[s'].
 Proof.
   induction 4; simpl in *; eauto.
-  destruct IHstuck_in_var as [? []]; auto.
+  destruct IHneedsn as [ ? [ ] ]; auto.
   eexists.
-  split; [eauto |].
+  split; [ eauto | ].
   eapply rt_trans.
   - apply red_appl_multi.
     eassumption.
@@ -87,21 +87,21 @@ Proof.
     apply red_subst_multi; eauto.
 Qed.
 
-Lemma stuck_in_var_preserved_by_red x t :
-  stuck_in_var x t ->
+Lemma needsn_preserved_by_red x t :
+  needsn t x ->
   forall t', red t t' ->
-  stuck_in_var x t'.
+  needsn t' x.
 Proof.
   induction 1; inversion 1; subst; eauto.
   inversion H.
 Qed.
 
-Lemma stuck_in_var_preserved_by_red_multi x t t' :
+Lemma needsn_preserved_by_red_multi x t t' :
   clos_refl_trans _ red t t' ->
-  stuck_in_var x t ->
-  stuck_in_var x t'.
+  needsn t x ->
+  needsn t' x.
 Proof.
-  Local Hint Resolve stuck_in_var_preserved_by_red.
+  Local Hint Resolve needsn_preserved_by_red.
   intros Hrt.
   apply clos_rt_rt1n in Hrt.
   induction Hrt; eauto.
