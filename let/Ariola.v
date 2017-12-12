@@ -200,9 +200,10 @@ Section CallByNeedDeterminism.
     (exists t', reassoc t t') \/
     (exists t', red_need t t').
   Proof.
-    induction t as [|? [Hanswer1|[[]|[[]|[]]]]| |? [Hanswer1|[[]|[[]|[]]]] ? [|[[[]]|[[]|[]]]]]; eauto 6.
-    - inversion Hanswer1; subst; eauto 6.
-    - inversion Hanswer1; subst; eauto 6.
+    induction t as
+      [ | ? [ Hanswer | [ [ ] | [ [ ] | [ ] ] ] ]
+      | | ? [ Hanswer | [ [ ] | [ [ ] | [ ] ] ] ] ? [ | [ [ [ ] ] | [ [ ] | [ ] ] ] ] ]; eauto 6;
+      inversion Hanswer; subst; eauto 6.
   Qed.
 End CallByNeedDeterminism.
 
@@ -219,12 +220,12 @@ Section ReassocTerminating.
     (forall x, 0 < env x) ->
     0 < weight env t.
   Proof.
-    induction t; intros ? Henv; simpl; eauto.
+    induction t as [ | ? IHt1 | ? IHt | ? IHt1 ? IHt2 ]; simpl; intros ? Henv; eauto.
     - specialize (IHt1 _ Henv).
       omega.
     - apply IHt.
-      intros [|?]; simpl; eauto.
-    - specialize (IHt _ Henv).
+      intros [ | ? ]; simpl; eauto.
+    - specialize (IHt1 _ Henv).
       omega.
   Qed.
 
@@ -233,16 +234,16 @@ Section ReassocTerminating.
     weight env t <= weight env' t.
   Proof.
     Local Hint Resolve le_n_S.
-    induction t; intros ? ? Henv; simpl;
+    induction t as [ | | ? IHt | ? ? ? IHt2 ]; intros ? ? Henv; simpl;
       repeat match goal with
       | |- ?n + ?m <= ?n' + ?m' =>
           assert (n <= n');
           [| assert (m <= m'); [| omega ]]
       end; eauto.
     - apply IHt.
-      intros [|?]; simpl; eauto.
-    - apply IHt0.
-      intros [|?]; simpl in *; eauto.
+      intros [ | ? ]; simpl; eauto.
+    - apply IHt2.
+      intros [ | ? ]; simpl in *; eauto.
   Qed.
 
   Corollary weight_ext  env env' t:
@@ -251,29 +252,29 @@ Section ReassocTerminating.
   Proof.
     intros Henv.
     assert (weight env t <= weight env' t);
-    [| assert (weight env' t <= weight env t) ];
+    [ | assert (weight env' t <= weight env t) ];
     solve [ apply weight_monotone; intros ?; rewrite Henv; omega | omega ].
   Qed.
 
   Lemma weight_rename t : forall r env,
     weight env (rename r t) = weight (r >>> env) t.
   Proof.
-    induction t; intros ? ?; simpl;
+    induction t as [ | | ? IHt | ? IHt1 ? IHt2 ]; intros ? ?; simpl;
       repeat (rewrite plusnO || rewrite plus_assoc); eauto.
     - rewrite IHt.
       apply weight_ext.
-      intros [|?]; reflexivity.
-    - rewrite IHt.
-      rewrite IHt0.
+      intros [ | ? ]; reflexivity.
+    - rewrite IHt1.
+      rewrite IHt2.
       f_equal.
       apply weight_ext.
-      intros [|?]; reflexivity.
+      intros [ | ? ]; reflexivity.
   Qed.
 
   Lemma weight_subst t : forall s env,
     weight env t.[s] = weight (fun x => weight env (s x)) t.
   Proof.
-    induction t; simpl; intros ? ?;
+    induction t as [ | | ? IHt | ? ? ? IHt2 ]; simpl; intros ? ?;
       repeat match goal with
       | |- ?n + ?m = ?n' + ?m' =>
           assert (n = n');
@@ -281,11 +282,11 @@ Section ReassocTerminating.
       end; eauto.
     - rewrite IHt.
       apply weight_ext.
-      intros [|?]; simpl; eauto.
+      intros [ | ? ]; simpl; eauto.
       apply weight_rename.
-    - rewrite IHt0.
+    - rewrite IHt2.
       apply weight_ext.
-      intros [|?]; simpl; eauto.
+      intros [ | ? ]; simpl; eauto.
       apply weight_rename.
   Qed.
 
@@ -346,7 +347,7 @@ Section ReassocTerminating.
   Theorem reassoc_well_founded : well_founded (fun t t' => reassoc t' t).
   Proof.
     intros t.
-    induction t as [t IH] using (well_founded_induction (well_founded_ltof _ (weight (fun _ => 1)))).
+    induction t as [ ? IH ] using (well_founded_induction (well_founded_ltof _ (weight (fun _ => 1)))).
     constructor.
     intros ? Hreassoc.
     apply IH.
@@ -366,28 +367,28 @@ Section CallByNeedCorrectness.
   Lemma expand_let_rename t : forall r,
     expand_let (rename r t) = rename r (expand_let t).
   Proof.
-    induction t; simpl; intros ?; f_equal; eauto.
-    - rewrite IHt.
-      rewrite IHt0.
+    induction t as [ | | | ? IHt1 ? IHt2 ]; simpl; intros ?; f_equal; eauto.
+    - rewrite IHt1.
+      rewrite IHt2.
       autosubst.
   Qed.
 
   Lemma expand_let_subst t : forall s,
     expand_let (t.[s]) = (expand_let t).[s >>> expand_let].
   Proof.
-    induction t; intros ?; simpl; try solve [f_equal; eauto].
+    induction t as [ | | ? IHt | ? IHt1 ? IHt2 ]; intros ?; simpl; try solve [ f_equal; eauto ].
     - rewrite IHt.
       do 2 f_equal.
       f_ext.
-      intros [|?]; simpl; eauto.
+      intros [ | ? ]; simpl; eauto.
       apply expand_let_rename.
-    - rewrite IHt.
-      rewrite IHt0.
+    - rewrite IHt1.
+      rewrite IHt2.
       repeat rewrite subst_comp.
       f_equal.
       f_ext.
       unfold up.
-      intros [|?]; simpl; eauto.
+      intros [ | ? ]; simpl; eauto.
       rewrite expand_let_rename.
       autosubst.
   Qed.
@@ -401,16 +402,7 @@ Section CallByNeedCorrectness.
   Lemma expand_let_reassoc t t' : reassoc t t' -> expand_let t = expand_let t'.
   Proof.
     induction 1; subst; simpl;
-      try solve [repeat rewrite <- expand_let_subst_single; repeat (f_equal; autosubst)];
-      congruence.
-  Qed.
-
-  Fact expand_let_reassoc_multi t t' : clos_refl_trans _ reassoc t t' -> expand_let t = expand_let t'.
-  Proof.
-    intros H.
-    apply clos_rt_rt1n in H.
-    induction H; eauto.
-    - apply expand_let_reassoc in H.
+      try solve [ repeat rewrite <- expand_let_subst_single; repeat (f_equal; autosubst) ];
       congruence.
   Qed.
 
@@ -418,10 +410,8 @@ Section CallByNeedCorrectness.
     answer a ->
     exists t, expand_let a = tabs t.
   Proof.
-    induction 1 as [| ? ? ? [? IHanswer]]; simpl; eauto.
-    - rewrite IHanswer.
-      simpl.
-      eauto.
+    induction 1 as [ | ? ? ? [ ? IHanswer ] ]; simpl; eauto.
+    rewrite IHanswer. simpl. eauto.
   Qed.
 
   Lemma expand_let_demands x t :
@@ -437,91 +427,87 @@ Section CallByNeedCorrectness.
     red_need t t' ->
     exists t0, cbn (expand_let t) t0 /\ clos_refl_trans _ red t0 (expand_let t').
   Proof.
-    induction 1 as [| ? ? ? ? [? []] | ? ? ? ? [? []] | ? ? ? ? [? []]]; simpl; eauto.
+    induction 1 as
+      [ | ? ? ? ? [ ? [ ] ]
+        | ? ? ? ? [ ? [ ] ]
+        | ? ? ? ? [ ? [ ] ] ]; simpl; eauto.
     - eapply cbn_subst' with (x := 0); simpl; eauto.
-      + intros []; eauto.
+      + intros [ ]; eauto.
       + apply expand_let_demands; eauto.
-    - eexists.
-      split.
-      + apply cbn_subst.
-        eauto.
+    - eexists.  split.
+      + apply cbn_subst. eauto.
       + eapply red_subst_multi; eauto.
   Qed.
 
-  Theorem red_need_sound_aux t t' :
+  Lemma red_need_sound_aux t t' :
     clos_refl_trans _ (fun t t' => reassoc t t' \/ red_need t t') t t' ->
     clos_refl_trans _ red (expand_let t) (expand_let t').
   Proof.
     intros Hrt.
     apply clos_rt_rt1n in Hrt.
-    induction Hrt as [| ? ? ? []]; eauto.
-    - apply expand_let_reassoc in H.
-      congruence.
-    - destruct (expand_let_red_need _ _ H) as [? []].
-      eauto.
+    induction Hrt as [ | ? ? ? [ Hreassoc | Hred ] ]; eauto.
+    - apply expand_let_reassoc in Hreassoc. congruence.
+    - destruct (expand_let_red_need _ _ Hred) as [ ? [ ] ]. eauto.
   Qed.
 
   Theorem red_need_sound t t' :
     clos_refl_trans _ (fun t t' => reassoc t t' \/ red_need t t') t t' ->
     answer t' ->
-    exists t0, clos_refl_trans _ cbn (expand_let t) (tabs t0).
+    exists t0, clos_refl_trans _ cbn (expand_let t) (tabs t0) /\ clos_refl_trans _ red (tabs t0) (expand_let t').
   Proof.
     intros Hrt Hanswer.
-    destruct (expand_let_answer _ Hanswer) as [t0 Heq].
+    destruct (expand_let_answer _ Hanswer) as [ ? Heq ].
     apply red_need_sound_aux in Hrt.
     rewrite Heq in Hrt.
-    destruct (call_by_name_property _ _ Hrt) as [? [? Hrt']].
+    destruct (call_by_name_property _ _ Hrt) as [ ? [ ? Hrt' ] ].
+    apply red_abs_multi in Hrt'.
+    rewrite <- Heq in Hrt'.
     eauto.
   Qed.
-
+  
   Lemma red_need_normalize t0 :
-    Acc (fun t3 t1 : Term.term => exists t2 : Term.term, cbn t1 t2 /\ clos_refl_trans _ red t2 t3) t0 ->
+    Acc (fun t3 t1 => exists t2, cbn t1 t2 /\ clos_refl_trans _ red t2 t3) t0 ->
     forall t, expand_let t = t0 ->
     exists t', clos_refl_trans _ (fun t t' => reassoc t t' \/ red_need t t') t t' /\ in_normal_form _ (fun t t' => reassoc t t' \/ red_need t t') t'.
   Proof.
-    induction 1 as [? ? IH].
-    intros t ?.
-    subst.
-    induction t as [? IH'] using (well_founded_induction reassoc_well_founded).
-    destruct (answer_or_reducible_or_stuck t) as [Hanswer | [[? Hdemands] | [[? Hreassoc] | [? Hred]]]]; eauto.
-    - exists t.
-      split; eauto.
-      intros ? [Hreassoc | Hred].
+    induction 1 as [ ? ? IH ]. intros t ?. subst.
+    induction t as [ ? IH' ] using (well_founded_induction reassoc_well_founded).
+    destruct (answer_or_reducible_or_stuck t) as [ ? | [ [ ? ? ] | [ [ ? Hreassoc ] | [ ? Hred ] ] ] ]; eauto.
+    - exists t. split; eauto.
+      intros ? [ ? | ? ].
       + eapply answer_reassoc_disjoint; eauto.
       + eapply answer_red_need_disjoint; eauto.
-    - exists t.
-      split; eauto.
-      intros ? [Hreassoc | Hred].
+    - exists t. split; eauto.
+      intros ? [ ? | ? ].
       + eapply demands_reassoc_disjoint; eauto.
       + eapply demands_red_need_disjoint; eauto.
-    - destruct (IH' _ Hreassoc) as [t' []];
+    - destruct (IH' _ Hreassoc) as [ ? [ ] ];
         try rewrite <- (expand_let_reassoc _ _ Hreassoc) in *;
         eauto 6.
-    - destruct (IH _ (expand_let_red_need _ _ Hred) _ eq_refl) as [? []].
-      eauto 6.
+    - destruct (IH _ (expand_let_red_need _ _ Hred) _ eq_refl) as [ ? [ ] ]. eauto 6.
   Qed.
-      
+
   Theorem red_need_complete t t0 :
     clos_refl_trans _ cbn (expand_let t) (tabs t0) ->
-    exists t', clos_refl_trans _ (fun t t' => reassoc t t' \/ red_need t t') t t' /\ answer t'.
+    exists t', clos_refl_trans _ (fun t t' => reassoc t t' \/ red_need t t') t t' /\ answer t' /\ clos_refl_trans _ red (tabs t0) (expand_let t').
   Proof.
     intros Hnormalizing.
-    destruct red_need_normalize with (expand_let t) (t) as [t' [Hrt Hnf]]; eauto.
+    edestruct red_need_normalize with (t := t) as [ t' [ Hrt Hnf ] ]; eauto.
     - apply quasi_cbn_theorem'.
       eapply normalizing_and_deterministic_impl_terminating; eauto.
       + intros ? ? ? ?. apply cbn_det; eauto.
       + inversion 1.
-    - exists t'.
-      split; eauto.
-      destruct (answer_or_reducible_or_stuck t') as [| [[? Hdemands] | [[? Hreassoc] | [? Hred]]]]; eauto.
-      + apply expand_let_demands in Hdemands.
-        apply red_need_sound_aux in Hrt.
-        destruct (red_confluent _ _ _ (cbn_multi_impl_red_multi _ _ Hnormalizing) Hrt) as [? [Hrt' Hrt'']].
-        destruct (red_abs_multi_inv _ _ Hrt' _ eq_refl) as [? []].
-        subst.
-        specialize (stuck_in_var_preserved_by_red_multi _ _ _ Hrt'' Hdemands).
+    - destruct (answer_or_reducible_or_stuck t') as [ Hanswer | [ [ ? Hdemands ] | [ [ ? Hreassoc ] | [ ? Hred ] ] ] ].
+      + destruct (red_need_sound _ _ Hrt Hanswer) as [ ? [ Hnormalizing' ] ].
+        destruct (cbn_confluent _ _ _ Hnormalizing Hnormalizing') as [ ? [ Hrefl Hrefl' ] ].
+        destruct (strip_lemma _ _ _ _ Hrefl) as [ | [ ? [ Hcontra ]] ]; [ subst | inversion Hcontra ].
+        destruct (strip_lemma _ _ _ _ Hrefl') as [ Heq | [ ? [Hcontra ] ] ]; [ rewrite Heq in * | inversion Hcontra ].  eauto.
+      + apply red_need_sound_aux in Hrt.
+        destruct (red_confluent _ _ _ (cbn_multi_impl_red_multi _ _ Hnormalizing) Hrt) as [ ? [ Hrt' Hrt'' ] ].
+        destruct (red_abs_multi_inv _ _ Hrt' _ eq_refl) as [? [ ] ]. subst.
+        specialize (stuck_in_var_preserved_by_red_multi _ _ _ Hrt'' (expand_let_demands _ _ Hdemands)).
         inversion 1.
-      + destruct (Hnf _ (or_introl Hreassoc)).
-      + destruct (Hnf _ (or_intror Hred)).
+      + edestruct Hnf; simpl; eauto.
+      + edestruct Hnf; simpl; eauto.
   Qed.
 End CallByNeedCorrectness.
