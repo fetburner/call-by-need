@@ -1,1 +1,1 @@
--Q . Metatheories ARS.v lambda/CBN.v lambda/Reduction.v lambda/Standardization.v lambda/Term.v let/Ariola.v
+-Q . Metatheories ARS.v lambda/CBN.v lambda/Reduction.v lambda/Standardization.v lambda/Term.v let/CallByNeed.v let/CallByNeedContext.v let/VCANormal.v let/NeedNameCorrespond.v

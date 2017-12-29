@@ -131,6 +131,15 @@ Qed.
 
 Definition cbn_confluent := deterministic_impl_confluent _ _ cbn_det.
 
+Lemma cbn_needsn_disjoint t t' :
+  cbn t t' ->
+  forall x, needsn t x ->
+  False.
+Proof.
+  induction 1; inversion 1; subst; eauto.
+  inversion H3.
+Qed.
+
 Section CBNInternal.
   Inductive internal : relation term :=
   | internal_abs t t' :
