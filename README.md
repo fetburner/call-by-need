@@ -6,4 +6,4 @@ This repository contains a formalization of Ariola and Felleisen's call-by-need 
 - Autosubst (https://github.com/uds-psl/autosubst)
 
 # Updates
-- Add a formalization of Ariola and Felleisen's original (evaluation context based) calculus on December 29, 2017. Now, we verified the correpondence with call-by-name not only of our modified call-by-need lambda calculus but also of Ariola and Felleisen's original call-by-need lambda calculus.
+- Add a formalization of Ariola and Felleisen's original (evaluation context based) calculus on December 29, 2017. Now, we verified the correpondence with call-by-name, not only of our modified call-by-need lambda calculus, but also of Ariola and Felleisen's original call-by-need lambda calculus.
