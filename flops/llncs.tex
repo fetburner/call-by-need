@@ -1,0 +1,744 @@
+% This is LLNCS.DOC the documentation file of
+% the LaTeX2e class from Springer-Verlag
+% for Lecture Notes in Computer Science, version 2.4
+\documentclass{llncs}
+\usepackage{llncsdoc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{bussproofs}
+%
+\newcommand{\LET}[3]{\mathbf{let}~#1=#2~\mathbf{in}~#3}
+\newcommand{\LETBINDING}[2]{\mathbf{let}~#1=#2~\mathbf{in}}
+\newcommand{\EXPANDLET}[1]{#1^\pitchfork}
+\newcommand{\SIZE}[2]{\parallel #1 \parallel_{#2}}
+\newcommand{\FULLBETA}{\xrightarrow{\beta}}
+\newcommand{\CALLBYNAME}{\xrightarrow{\mathrm{name}}}
+\newcommand{\CALLBYNEED}{\xrightarrow{\mathrm{need}}}
+\newcommand{\CALLBYNEEDI}{\xrightarrow{\mathrm{I}}}
+\newcommand{\CALLBYNEEDVCA}{\xrightarrow{\mathrm{VCA}}}
+\newcommand{\RTCLOS}[1]{#1_*}
+\newcommand{\DEMAND}[2]{\mathbf{needs}(#2, #1)}
+\newcommand{\STUCK}[2]{\mathbf{needs}_\mathrm{n}(#2, #1)}
+\newcommand{\SHIFT}[2]{{\uparrow_{#1}}#2}
+%
+\begin{document}
+
+\title{Formal Verification of the Correspondence between Call-by-Need and Call-by-Name}
+
+\author{Masayuki Mizuno \and Eijiro Sumii}
+
+\institute{Tohoku University}
+
+\maketitle
+%
+\begin{abstract}
+%背理法を避けるのも貢献
+We formalize the call-by-need evaluation of non-strict languages and prove
+its correspondence with call-by-name, using the Coq proof assistant.
+
+\quad It has been long argued that there is a gap between the high-level
+abstraction of non-strict languages---namely, \emph{call-by-name} evaluation---and
+their actual \emph{call-by-need} implementations.
+Although a number of proofs have been given to bridge this gap,
+they are not necessarily suitable for stringent, mechanized verification
+because of the use of a global heap, ``graph-based'' techniques,
+or ``marked reduction''.
+Our technical contributions are twofold:
+(1) we give a simpler proof based on two forms of standardization,
+adopting de Bruijn indices for representation of variable bindings
+along with Ariola and Felleisen's small-step semantics, and
+(2) we devise a technique to significantly simplify the formalization
+by eliminating the notion of evaluation contexts---which have been considered
+essential for the call-by-need calculus---from the definitions.
+%       (3) we adopt the \emph{accessibility predicate} to avoid coinductive definitions or proof by contradiction when formalizing the correspondence of termination.
+\end{abstract}
+%
+\section{Introduction}
+% *査読者に分かっていることをアピールする*
+\paragraph*{Background.}
+% Although most practical programming languages do not define formal semantics,
+The \emph{call-by-name} evaluation strategy has been considered the high-level abstraction of non-strict functional languages
+since Abramsky \cite{Abramsky90} and Ong \cite{Ong88} adopted call-by-name evaluation to weak head-normal forms as a formalism of laziness.
+However, when it comes to actual implementation, call-by-name as it is does not lead to efficient execution because function arguments are evaluated every time they are needed.
+Therefore, most implementations adopt the \emph{call-by-need} strategy \cite{Wadsworth71}, that is: when a redex is found, it is saved in a freshly allocated memory region called a \emph{thunk}; when the redex needs to be evaluated, the thunk is updated with the value of the redex for later reuse.
+
+% 代表的な文献は全て挙げる
+% 議論の展開を丁寧に
+% 紙の上での証明では良いけどCoqには向かない
+There has been a large amount of research to bridge the gap between call-by-name and call-by-need by proving their correspondence, that is,
+\begin{quote}
+\emph{if the call-by-need evaluation of a term results in a value, its call-by-name evaluation results in a corresponding value, and vice versa.}
+\end{quote}
+For example, Launchbury \cite{Launchbury93} defined natural (or ``big-step'') semantics for call-by-need evaluation and proved its adequacy through denotational semantics.
+Ariola and Felleisen \cite{Ariola97} and Maraist et al. \cite{Maraist98} developed small-step call-by-need operational semantics, and proved their correspondence to call-by-name.
+Kesner \cite{Kesner16} gave an alternative proof, based on normalization with non-idempotent intersection types, using Accattoli et al. \cite{Accattoli14}'s call-by-need semantics.
+
+\paragraph*{Existing formalisms and our contribution.}
+In this paper, we mechanize a formalization of the call-by-need evaluation and its correspondence with call-by-name, using the Coq proof assistant.%
+\footnote{We believe that our approach can be adopted in other proof assistants as well.}
+To this goal, after careful design choices, we adapt Ariola and Felleisen's small-step semantics, and give a simpler proof based on two forms of standardization.
+
+In what follows, we review existing formalisms to explain our choices.  Several abstract machines (e.g. \cite{Johnsson84,PeytonJones92,Fairbairn87}) have been proposed for call-by-need evaluation, but they are generally too low-level for formal verification of correspondence to call-by-name.  Launchbury \cite{Launchbury93} defined call-by-need natural semantics $\Gamma : e \Downarrow \Delta : z$, meaning ``term $e$ under store $\Gamma$ evaluates to value $z$ together with the modified store $\Delta$''.
+Ariola and Felleisen \cite{Ariola97} and Maraist et al. \cite{Maraist98} independently defined small-step reduction based on let-bindings: $\LET{x}{M}{N}$ represents term $N$ with a thunk $M$ pointed to by $x$.
+For example, in Ariola and Felleisen's semantics, the term
+$(\lambda x.xx)((\lambda y.y)(\lambda z.z))$
+is reduced as follows:
+\[ \begin{array}{lll}
+	& (\lambda x.xx)((\lambda y.y)(\lambda z.z)) & \\
+	\rightarrow & \LET{x}{(\lambda y.y)(\lambda z.z)}{xx} & \mbox{--- $x$ is bound to $(\lambda y.y)(\lambda z.z)$} \\
+	\rightarrow & \LET{x}{(\LET{y}{\lambda z.z}{y})}{xx} & \mbox{--- $x$ is evaluated and $y$ is bound to $\lambda z.z$} \\
+	\rightarrow & \LET{x}{(\underline{\LETBINDING{y}{\lambda z.z}}~\lambda z.z)}{xx} & \mbox{--- $y$ is substituted with its value} \\
+	\rightarrow & \underline{\LETBINDING{y}{\lambda z.z}}~\LET{x}{\lambda z.z}{xx} & \mbox{--- let-bindings are flattened} \\
+	\rightarrow & \dots
+\end{array} \]
+Note, in particular, that the underlined let-binding (of $y$) is moved forward outside the other let-binding (of $x$).  Such ``reassociation'' of let-bindings is also required for reductions like $(\LET{x}{\dots}{\lambda y.x})z \rightarrow \LET{x}{\dots}{(\lambda y.x)z}$.
+% However, their semantics need extraneous reduction rule to re-associate $\mathbf{let}$.
+
+% Revisitedは関連研究
+Variable bindings have been a central topic in the theory of formal languages.  Choice of a representation of bindings---such as de Bruijn indices \cite{deBruijn72}, locally nameless representation \cite{Gordon93,Mckinna99,McBride04}, or (parametric) higher order abstract syntax (PHOAS) \cite{Pfenning88,Chlipala08}---is particularly crucial for formal definitions and proofs on proof assistants.
+We adopt de Bruijn indices along with the reduction in Ariola and Felleisen \cite{Ariola97} and Maraist et al. \cite{Maraist98} because of their relative simplicity when manipulating the bindings of variables to thunks.  (By contrast, Launchbury's semantics is based on a monotonically growing global heap and is still low-level, requiring fresh name generation---a.k.a. ``gensym''---for allocation of thunks.)
+% Chang and Felleisen \cite{Chang12} proposed a variant of Ariola and Felleisen's semantics with simpler reduction rules but more sophisticated evaluation contexts.)
+% the library Autosubst \cite{Schaefer15} automatically derive the dull bit: the needed operations such as ``shift'' and their metatheories such as ``substitution lemma''.
+An obstacle in formalizing their definitions is the \emph{evaluation contexts}, which may insert multiple bindings at once and are harder to formalize with de Bruijn indices.  We eliminate them by devising a predicate that defines when a term ``needs'' the value of a variable.
+
+Although our modified \emph{definition} of call-by-need reduction is suitable for formalization with de Bruijn indices, existing \emph{proofs} are still hard to formalize.  On one hand, the proof by Ariola and Felleisen \cite{Ariola97} is based on informally introduced graph representation of terms for relating call-by-need and call-by-name reductions; as they themselves write, ``a graph model for a higher-order language requires many auxiliary notions'' \cite[p. 3]{Ariola97}.  On the other hand, Maraist et al. \cite{Maraist98}'s proof uses rather intricate ``marks'' on redexes and their reductions to prove the confluence of their non-deterministic reductions.
+We therefore devise a simpler proof, outlined as follows.  As for the correspondence between terms during call-by-name and call-by-need reductions, we simply inline all let-bindings (denoted by $\EXPANDLET{M}$) which represent thunks in call-by-need.  Then, roughly speaking, a call-by-need reduction step such as $\LET{x}{M}{N} \rightarrow \LET{x}{M'}{N}$ corresponds to multiple call-by-name steps like $N[x \mapsto M] \rightarrow_* N[x \mapsto M']$.  We then appeal to Curry and Feys' standardization theorem \cite{Barendregt-84} as follows:
+\begin{itemize}
+	\item For the ``forward direction'', suppose that a term $M$ is evaluated to an answer $A$ by call-by-need.  Then $\EXPANDLET{M}\RTCLOS{\FULLBETA}\EXPANDLET{A}$ by full $\beta$-reduction $\FULLBETA$.  By a corollary of stadardization, there exists some call-by-name evaluation $\EXPANDLET{M}\RTCLOS{\CALLBYNAME}V$ with $V\RTCLOS{\FULLBETA}\EXPANDLET{A}$.
+	\item The main challenge is to prove the converse direction.  Suppose $\EXPANDLET{M} \RTCLOS{\CALLBYNAME}V$.  We aim to prove $M$ is evaluated by call-by-need to some answer $A$ corresponding to $V$.  By another corollary of standardization,
+		$\EXPANDLET{M}$ is terminating (regardless of non-determinism) by repetition of ${\CALLBYNAME}\circ{\RTCLOS{\FULLBETA}}$.
+		Since a call-by-need reduction step corresponds to ${\CALLBYNAME}\circ{\RTCLOS{\FULLBETA}}$, the call-by-need evaluation must also terminate with some $N$.
+		The correspondence between $N$ and $V$ is then proved via the forward direction above.
+\end{itemize}
+% marked reductionやterm graphについて例を挙げて解説する
+% Coqでformalizeするとまだ課題がある
+% formalな証明として扱いやすい（Coqである必然性もない）
+% 内容が被っても良くて，段々詳しくする
+%
+Our Coq script is available at: \verb|https://github.com/fetburner/call-by-need|
+
+\paragraph*{Structure of the paper.}
+We review the call-by-name $\lambda$-calculus in Section \ref{sec:call-by-name}.
+Section \ref{sec:call-by-need} presents the syntax and semantics of Ariola and Felleisen's call-by-need $\lambda$-calculus.
+Section \ref{sec:informal-proofs} gives the outline of our new proof of the correspondence between call-by-need and call-by-name, based on standardization.
+Section \ref{sec:formalization} details our techniques for formalization in a proof assistant (Coq, to be specific).
+Section \ref{sec:previous-researches} discusses previous researches and their relationship to our approach.
+Section \ref{sec:conclusion} concludes with future work.
+%
+\section{$\lambda$-calculus and call-by-name evaluation}\label{sec:call-by-name}
+% In this section, we review the call-by-name---one of the evaluation strategy that does not admit reducing arguments before the function call---in lambda calculus.
+
+We define the syntax and basic $\beta$-reduction of $\lambda$-calculus as in \figurename~\ref{call-by-name-lambda-calculus}.
+%
+\begin{figure}[tp]
+	\textbf{Syntax}
+	\[ \begin{array}{llcl}
+		\mbox{Terms}\quad & L,M,N\quad & ::=\quad & x~|~V~|~M~N \\
+		\mbox{Values (weak head normal forms)}\quad & V\quad & ::=\quad & \lambda x.M \\
+		\mbox{Evaluation contexts}\quad & E_\mathrm{n}\quad & ::=\quad & [] ~|~ E_\mathrm{n}~M \\
+	\end{array} \]
+	\textbf{Reduction rule}
+	\[ \begin{array}{lrcl}
+		(\beta)\quad & (\lambda x.M)N & \rightarrow & M[x \mapsto N] \\
+	\end{array} \]
+	\caption{Definitions for the call-by-name $\lambda$-calculus}
+	\label{call-by-name-lambda-calculus}
+\end{figure}
+%
+The expression $M[x\mapsto N]$ denotes capture-avoiding substitution of $N$ for each free occurrence of $x$ in $M$.
+The full $\beta$-reduction $\FULLBETA$ is defined as the compatible closure of the reduction rule $(\beta)$.
+For any binary relation $\xrightarrow{R}$, we write the reflexive transitive closure of $\xrightarrow{R}$ as $\xrightarrow{R}_*$.
+For example, the reflexive transitive closure of $\FULLBETA$ is written $\RTCLOS{\FULLBETA}$.
+
+The call-by-name reduction $\CALLBYNAME$ is the closure of the base rule $(\beta)$ by evaluation contexts $E_n$.
+For example, in call-by-name,
+$(\lambda x.xx)((\lambda y.y)(\lambda z.z))$
+is reduced as follows:
+\[ \begin{array}{ll}
+	& (\lambda x.xx)((\lambda y.y)(\lambda z.z)) \\
+	\CALLBYNAME & (\lambda y.y)(\lambda z.z)((\lambda y.y)(\lambda z.z)) \\
+	\CALLBYNAME & (\lambda z.z)((\lambda y.y)(\lambda z.z)) \\
+	\CALLBYNAME & (\lambda y.y)(\lambda z.z) \\
+	\CALLBYNAME & \lambda z.z \\
+\end{array} \]
+The relation $\CALLBYNAME$ is a partial function and included in $\FULLBETA$.
+Note that, under full $\beta$-reduction, there exists a shorter reduction sequence:
+\[(\lambda x.xx)((\lambda y.y)(\lambda z.z))\FULLBETA(\lambda x.xx)(\lambda z.z)\FULLBETA(\lambda z.z)(\lambda z.z)\FULLBETA\lambda z.z\]
+% This case express inefficiency of the call-by-name evaluation strategy well.
+
+In order to establish the correspondence with call-by-need evaluation, we will also focus on stuck states $E_n[x]$.  The basic properties of call-by-name can then be summarized as follows:
+%
+\begin{lemma}[basic properties of call-by-name evaluation]\label{determinism-of-call-by-name}
+	\begin{enumerate}
+		\item $\CALLBYNAME$ is a partial function.
+		\item If $E_\mathrm{n}[x]=E_\mathrm{n}'[y]$ then $x=y$. \label{enum:det-name-context}
+		\item For any term $M$, exactly one of the following holds: \label{enum:det-name-total}
+			\begin{enumerate}
+				\item $M$ is a value
+				\item $M=E_\mathrm{n}[x]$ for some $E_\mathrm{n}$ and $x$ \label{enum:det-name-total-demand}
+				\item $M$ is reducible by $\CALLBYNAME$
+			\end{enumerate}
+	\end{enumerate}
+\end{lemma}
+%
+\begin{proof}
+	By straightforward structural inductions. \qed
+\end{proof}
+
+Thanks to Curry and Feys' standardization theorem, the following \lemmaname~\ref{normalization} (a call-by-name variant of the leftmost reduction theorem, which is a folklore) and \lemmaname~\ref{quasi-normalization} (a call-by-name variant of quasi-leftmost reduction theorem, which seems to be original) hold.
+As outlined in the Introduction, they play a crucial role in proving the correspondence between call-by-name and call-by-need.
+%
+\begin{lemma}\label{normalization}
+	If $M\RTCLOS{\FULLBETA}V$, there exists $V'$ such that $M\RTCLOS{\CALLBYNAME}V' \RTCLOS{\FULLBETA} V$.
+\end{lemma}
+%
+\begin{lemma}\label{quasi-normalization}
+	If $M \RTCLOS{\FULLBETA} V$ for some $V$, then $M$ is terminating by ${\CALLBYNAME}\circ{\RTCLOS{\FULLBETA}}$ (despite the non-determinism).
+\end{lemma}
+%
+As we shall see in Section~\ref{sec:informal-proofs}, the auxiliary relation ${\CALLBYNAME}\circ{\RTCLOS{\FULLBETA}}$ plays a key role when proving the correspondence between call-by-need and call-by-name reductions.
+
+\section{Ariola and Felleisen's call-by-need $\lambda$-calculus}\label{sec:call-by-need}
+%
+% Call-by-need is a improved evaluation strategy which does not admit reducing arguments before the function call, however reuses their values once they evaluated.
+% In this paper,
+We show the syntax, reduction rules, and evaluation contexts of Ariola and Felleisen's calculus in \figurename~\ref{call-by-need-lambda-calculus}.%
+\footnote{Strictly speaking, the reduction rules shown here are called \emph{standard reduction rules} in their paper, as opposed to non-deterministic reduction. }
+By convention, we assume that, whenever we write $E[x]$ on paper, the variable $x$ is not bound by $E$.  Note that our formalization in Coq will use de Bruijn indices and do not need such a convention.
+%
+\begin{figure}[tp]
+	\textbf{Syntax}
+	\[ \begin{array}{llcl}
+		\mbox{Values}\quad & V\quad & ::=\quad & \lambda x.M \\
+		\mbox{Answers}\quad & A\quad & ::=\quad & V~|~\LET{x}{M}{A} \\
+		\mbox{Terms}\quad & L,M,N\quad & ::=\quad & x~|~V~|~M~N~|~\LET{x}{M}{N} \\
+		\mbox{Evaluation contexts}\quad & E\quad & ::=\quad & [] ~|~ E~M ~|~ \LET{x}{M}{E} ~|~ \LET{x}{E}{E'[x]} \\
+	\end{array} \]
+	\textbf{Reduction rules}
+	\[ \begin{array}{lrcl}
+		(\mbox{I})\quad & (\lambda x.M)N & \rightarrow & \LET{x}{N}{M} \\
+		(\mbox{V})\quad & \LET{x}{V}{E[x]} & \rightarrow & \LET{x}{V}{E[V]} \\
+		(\mbox{C})\quad & (\LET{x}{M}{A})~N & \rightarrow & \LET{x}{M}{A~N} \\
+		(\mbox{A})\quad & \LET{y}{\LET{x}{M}{A}}{E[y]} & \rightarrow & \LET{x}{M}{\LET{y}{A}{E[y]}} \\
+	\end{array} \]
+	\caption{Ariola and Felleisen's call-by-need $\lambda$-calculus}
+	\label{call-by-need-lambda-calculus}
+\end{figure}
+%
+The call-by-need reduction $\CALLBYNEED$ is the closure of the base rules $(\mbox{I})$, $(\mbox{V})$, $(\mbox{C})$, and $(\mbox{A})$ by the evaluation contexts $E$.
+For example, as mentioned in the introduction, the term
+$(\lambda x.xx)((\lambda y.y)(\lambda z.z))$
+is reduced as follows (the redexes are underlined):
+\[ \begin{array}{ll}
+	& \underline{(\lambda x.xx)((\lambda y.y)(\lambda z.z))} \\
+	& \mbox{--- by rule $(\mbox{I})$ under evaluation context $[]$} \\
+	\CALLBYNEED & \LET{x}{\underline{(\lambda y.y)(\lambda z.z)}}{xx}\\
+	& \mbox{--- by $(\mbox{I})$ under $\LET{x}{[]}{xx}$} \\
+	\CALLBYNEED & \LET{x}{\underline{(\LET{y}{\lambda z.z}{y})}}{xx} \\
+	& \mbox{--- by $(\mbox{V})$ under $\LET{x}{[]}{xx}$} \\
+	\CALLBYNEED & \underline{\LET{x}{(\LET{y}{\lambda z.z}{\lambda z.z})}{xx}} \\
+	& \mbox{--- by $(\mbox{A})$ under $[]$} \\
+	\CALLBYNEED & \LET{y}{\lambda z.z}{\underline{\LET{x}{\lambda z.z}{xx}}} \\
+	\CALLBYNEED & \dots
+\end{array} \]
+Note that the value $\lambda z.z$ of $x$ is shared between the two occurrences of $x$ and is never computed twice.  Note also that, although the above call-by-need reduction sequence may seem longer than necessary, the ``administrative'' reductions by $(\mbox{V})$, $(\mbox{C})$, and $(\mbox{A})$ do not contribute to ``real'' reductions.
+%
+In order to distinguish administrative reductions when proving the correspondence between call-by-need and call-by-name evaluations,
+we also consider reductions limited to specific base rules as follows.
+The reduction $\CALLBYNEEDVCA$ is the closure of the three base rules $(\mbox{V})$, $(\mbox{C})$, and $(\mbox{A})$ by evaluation contexts $E$.
+Similarly, the reduction $\CALLBYNEEDI$ is defined by the closure of the base rule $(\mbox{I})$.
+Obviously, ${\CALLBYNEED} = {\CALLBYNEEDI}\cup{\CALLBYNEEDVCA}$.
+
+The points of Ariola and Felleisen's semantics are twofold:
+the representation of sharing by the syntatic form $\mathbf{let}$,
+and redex positions by evaluation contexts.
+Thanks to these techniques, their semantics is entirely syntactic,
+which is desirable for mechanized verification.
+
+% Ariolaの意味論の解説
+The above call-by-need reductions are defined so that they become deterministic:
+%
+\begin{lemma}[determinacy of call-by-need reductions]\label{determinism-of-call-by-need}
+	\begin{enumerate}
+		\item $\CALLBYNEEDI$ is a partial function.
+		\item $\CALLBYNEEDVCA$ is a partial function.
+		\item If $E[x]=E'[y]$, then $x=y$. \label{enum:demands}
+		\item For any term $M$, exactly one of the following holds: \label{enum:total-need}
+			\begin{enumerate}
+				\item $M$ is an answer
+				\item $M=E[x]$ for some $E$ and $x$ \label{enum:determinism-of-call-by-need-demand}
+				\item $M$ is reducible by $\CALLBYNEEDI$
+				\item $M$ is reducible by $\CALLBYNEEDVCA$
+			\end{enumerate}
+	\end{enumerate}
+\end{lemma}
+%
+\begin{proof}
+	Again by straightforward structural inductions. \qed
+\end{proof}
+%
+% Introで詳しく書いたなら後ろに持って行っても良い
+%\section{Previous Researches}\label{sec:previous-researches}
+%
+\section{Outline of our standardization-based proof}\label{sec:informal-proofs}
+%
+Before presenting the Coq formalization, we outline our new proof of the correspondence between call-by-name and call-by-need evaluations, based on standardization.
+
+The correspondence $\EXPANDLET{M}$ of terms is defined by let expansion as follows:
+\begin{definition}\label{def:expandlet}
+	\[ \begin{array}{rcl}
+		\EXPANDLET{x} & = & x \\
+		\EXPANDLET{(\lambda x. M)} & = & \lambda x. \EXPANDLET{M} \\
+		\EXPANDLET{(M~N)} & = & \EXPANDLET{M}~\EXPANDLET{N} \\
+		\EXPANDLET{(\LET{x}{M}{N})} & = & \EXPANDLET{N}[x \mapsto \EXPANDLET{M}] \\
+	\end{array} \]
+\end{definition}
+%
+Although the above definition is similar to Maraist et al. \cite{Maraist98}, they annotated terms and reductions with what they call ``marks'', which they use to keep track of the inlined $\mathbf{let}$-bindings, while we somehow ``recover'' their reduction by considering the auxiliary reduction relation ${\CALLBYNAME}\circ{\RTCLOS{\FULLBETA}}$.
+%
+\begin{lemma}[single-step correspondence]\label{lemma:single-step-soundness}
+	\begin{enumerate}
+		\item $\EXPANDLET{(M[x \mapsto N])} = \EXPANDLET{M}[x \mapsto \EXPANDLET{N}]$.
+		\item $\EXPANDLET{A}$ is a value for any answer $A$. \label{enum:value-answer}
+		\item For any $E$ and $x$, $\EXPANDLET{E[x]} = E_\mathrm{n}[x]$ for some $E_\mathrm{n}$. \label{enum:stuck}
+		\item If $M \CALLBYNEEDVCA N$ then $\EXPANDLET{M} = \EXPANDLET{N}$. \label{enum:administrative}
+		\item If $M \CALLBYNEEDI N$ then $\EXPANDLET{M} {\CALLBYNAME}\circ{\RTCLOS{\FULLBETA}} \EXPANDLET{N}$. \label{enum:actual}
+	\end{enumerate}
+\end{lemma}
+%
+
+Note that call-by-name reduction of $\EXPANDLET{M}$ itself does not straightforwardly correspond to call-by-need reduction of $M$ since the latter may reduce more redexes due to the sharing by $\mathbf{let}$-bindings.  For instance, the call-by-need evaluation
+\[\begin{array}{ll}
+	& \LET{x}{(\lambda y.y)(\lambda z.z)}{x(\lambda w.x)}\\
+	\RTCLOS{\CALLBYNEED} & \dots\LET{x}{\lambda z.z}{x(\lambda w.x)} \\
+	\CALLBYNEED & \dots\LET{x}{\lambda z.z}{(\lambda z.z)(\lambda w.x)} \\
+	\RTCLOS{\CALLBYNEED} & \dots\LET{x}{\lambda z.z}{\dots(\lambda w.x)}
+\end{array}\]
+(omitting irrelevant $\mathbf{let}$-bindings) becomes
+\[\begin{array}{ll}
+	& (\lambda y.y)(\lambda z.z)(\lambda w.(\lambda y.y)(\lambda z.z)) \\
+	\CALLBYNAME & (\lambda z.z)(\lambda w.(\lambda y.y)(\lambda z.z)) \\
+	\CALLBYNAME & \lambda w. (\lambda y.y)(\lambda z.z)
+\end{array} \]
+in call-by-name, leaving the $\beta$-redex $(\lambda y.y)(\lambda z.z)$ inside a $\lambda$-abstraction, which needs to be reduced by full $\beta$-reduction.
+
+%
+\begin{proof}[\lemmaname~\ref{lemma:single-step-soundness}]
+	The first two clauses are proved by obvious structural inductions,
+	and the next three clauses follow from the structural inductions on evaluation contexts
+	(note that $\CALLBYNEEDI$ and $\CALLBYNEEDVCA$ are the closure of base rules by evaluation contexts $E$). \qed
+\end{proof}
+
+We first consider the ``soundness'' direction of the correspondence, that is, any call-by-need evaluation has a corresponding call-by-name evaluation:
+\begin{theorem}[soundness]\label{theorem:soundness}
+	If $M \RTCLOS{\CALLBYNEED} A$, then $\EXPANDLET{M} \RTCLOS{\CALLBYNAME} V \RTCLOS{\FULLBETA} \EXPANDLET{A}$ for some $V$.
+\end{theorem}
+
+\begin{proof}
+	Suppose $M \RTCLOS{\CALLBYNEED} A$.  Then $\EXPANDLET{M} \RTCLOS{\FULLBETA} \EXPANDLET{A}$ by clause \ref{enum:administrative} and \ref{enum:actual} of \lemmaname~\ref{lemma:single-step-soundness}, where $\EXPANDLET{A}$ is a value by clause \ref{enum:value-answer} of \lemmaname~\ref{lemma:single-step-soundness}.
+	Then, by Lemma~\ref{normalization}, we obtain the value $V$ such that $\EXPANDLET{M} \RTCLOS{\CALLBYNAME} V \RTCLOS{\FULLBETA} \EXPANDLET{A}$. \qed
+\end{proof}
+
+% lefteqnで\FULLBETAを入れて，phantomで\rightarrowを入れる
+The harder, converse direction (called ``completeness'') is as follows:
+%
+\begin{theorem}[completeness]\label{theorem:completeness}
+	If $\EXPANDLET{M} \RTCLOS{\CALLBYNAME} V$, then $M \RTCLOS{\CALLBYNEED} A$ and $V \RTCLOS{\FULLBETA} \EXPANDLET{A}$ for some $A$.
+\end{theorem}
+
+In addition to the fact that call-by-name reduction by itself is not ``sufficient'' for call-by-need as explained above, another problem is that termination under call-by-name does not immediately imply termination under call-by-need since administrative reductions in call-by-need become 0 step in call-by-name, as in clause \ref{enum:administrative} of \lemmaname~\ref{lemma:single-step-soundness}.
+To address the latter issue, we show the termination of administrative reductions as follows:
+%
+\begin{lemma}\label{lemma:VCA-terminates}
+	Administrative reduction $\CALLBYNEEDVCA$ is terminating.
+\end{lemma}
+%
+\begin{proof}
+	By the decrease of the following measure function $\SIZE{M}{s}$, indexed by environments $s$ mapping $\mathbf{let}$-bound variables to the measure of their right-hand sides (and defaulting to $1$ for other variables).
+	\[ \begin{array}{rcl}
+		\SIZE{x}{s} & = & s(x) \\
+		\SIZE{\lambda x. M}{s} & = & \SIZE{M}{s \circ [x \mapsto 1]} \\
+		\SIZE{M~N}{s} & = & 2\SIZE{M}{s}+2\SIZE{N}{s} \\
+		\SIZE{\LET{x}{M}{N}}{s} & = & 2\SIZE{M}{s}+\SIZE{N}{s \circ [x \mapsto 1+\SIZE{M}{s}]}
+	\end{array}\vspace{-\baselineskip} \]\qed % [XXX]
+\end{proof}
+%
+This proof is simialr to Maraist et al. \cite[p. 287]{Maraist98} except for our treatment of variables based on environments.
+
+We then prove the completeness theorem:
+%
+\begin{proof}[\theoremname~\ref{theorem:completeness}]
+	First, we show that the call-by-need reduction of $M$ is normalizing.  If there is an infinite call-by-need reduction sequence from $M$, then by \lemmaname~\ref{lemma:VCA-terminates}
+	it must contain an infinite number of $\CALLBYNEEDI$, and therefore by clause \ref{enum:actual} of \lemmaname~\ref{lemma:single-step-soundness} there is an infinite reduction sequence consisting of ${\CALLBYNAME}\circ{\RTCLOS{\FULLBETA}}$ from $\EXPANDLET{M}$.  However, this contradicts with \lemmaname~\ref{quasi-normalization}  (since $\EXPANDLET{M} \RTCLOS{\CALLBYNAME} V$ obviously implies $\EXPANDLET{M} \RTCLOS{\FULLBETA} V$).\footnote{Although this argument seems to be a proof by contradiction, our actual Coq proof is constructive, using an induction on the finite reduction sequence of ${\CALLBYNAME}\circ{\RTCLOS{\FULLBETA}}$ from $\EXPANDLET{M}$ as we shall see in Section \ref{sec:formalization}.}
+
+	Given that $M$ terminates in call-by-need, we next show its normal form $N$ is an answer $A$.
+	By clause \ref{enum:total-need} of \lemmaname~\ref{determinism-of-call-by-need},
+	if $N$ is \emph{not} an answer, it is \emph{stuck} in call-by-need, that is, $N = E[x]$ for some $E$ and $x$.
+	Then, by clause \ref{enum:stuck} of \lemmaname~\ref{lemma:single-step-soundness},
+	$\EXPANDLET{E[x]} = E_n[x]$ for some $E_n$, that is $\EXPANDLET{N}$ is stuck in call-by-name.
+	Also, by clause \ref{enum:administrative} and \ref{enum:actual} of \lemmaname~\ref{lemma:single-step-soundness}, $\EXPANDLET{M} \RTCLOS{\FULLBETA} \EXPANDLET{N}$.
+	Then, by confluence of $\FULLBETA$, there exists term $L$ such that $\EXPANDLET{N} \RTCLOS{\FULLBETA} L$ and $V \RTCLOS{\FULLBETA} L$,
+	that is, $L$ is a value and $\EXPANDLET{N}$ reduces to it by $\FULLBETA$.
+	Since stuck states in call-by-name are preserved by $\FULLBETA$, this contradicts with the fact that $\EXPANDLET{N}$ is stuck in call-by-name.
+
+	Finally, we show $V \RTCLOS{\FULLBETA} \EXPANDLET{A}$.
+	By \theoremname~\ref{theorem:soundness}, we have some $V'$ such that $\EXPANDLET{M} \RTCLOS{\CALLBYNAME} V' \RTCLOS{\FULLBETA} \EXPANDLET{A}$.
+	We then obtain $V=V'$ by \lemmaname~\ref{determinism-of-call-by-name}. \qed
+\end{proof}
+%
+\section{Formalization in Coq}\label{sec:formalization}
+%
+The main points of our formalization in Coq are twofold:
+representation of binding by de Bruijn indices,
+and implicit treatment of evaluation contexts.
+We show the syntax and reduction rules of our modified call-by-name and call-by-need $\lambda$-calculi in \figurename~\ref{fig:modified-name} and \figurename~\ref{fig:modified-need}.
+%
+\begin{figure}[tp]
+	\textbf{De Bruijn indexed syntax}
+	\[ \begin{array}{llcl}
+		\mbox{Terms}\quad & L,M,N\quad & ::=\quad & x~|~V~|~M~N \\
+		\mbox{Values}\quad & V\quad & ::=\quad & \lambda.M \\
+	\end{array} \]
+%
+	\textbf{Reduction rules}
+	\begin{center}
+		\begin{minipage}{.45\textwidth}
+			\begin{prooftree}
+				\AxiomC{}
+				\UnaryInfC{$(\lambda x.M)N \CALLBYNAME M[x \mapsto N]$}
+			\end{prooftree}
+		\end{minipage}
+		\begin{minipage}{.45\textwidth}
+			\begin{prooftree}
+				\AxiomC{}
+				\UnaryInfC{$(\lambda x.M)N \FULLBETA M[x \mapsto N]$}
+			\end{prooftree}
+		\end{minipage}
+	\end{center}
+%
+	\textbf{Context rules}
+	\begin{center}
+		\begin{minipage}{.3\textwidth}
+			\begin{prooftree}
+				\AxiomC{}
+				\UnaryInfC{$\STUCK{x}{x}$}
+			\end{prooftree}
+		\end{minipage}
+		\begin{minipage}{.3\textwidth}
+			\begin{prooftree}
+				\AxiomC{$\STUCK{x}{M}$}
+				\UnaryInfC{$\STUCK{x}{M~N}$}
+			\end{prooftree}
+		\end{minipage}
+		\begin{minipage}{.3\textwidth}
+			\begin{prooftree}
+				\AxiomC{$M\CALLBYNAME M'$}
+				\UnaryInfC{$M~N\CALLBYNAME M'~N$}
+			\end{prooftree}
+		\end{minipage}
+	\end{center}
+%
+	\begin{center}
+		\begin{minipage}{.3\textwidth}
+			\begin{prooftree}
+				\AxiomC{$M\FULLBETA M'$}
+				\UnaryInfC{$M~N\FULLBETA M'~N$}
+			\end{prooftree}
+		\end{minipage}
+		\begin{minipage}{.3\textwidth}
+			\begin{prooftree}
+				\AxiomC{$N\FULLBETA N'$}
+				\UnaryInfC{$M~N\FULLBETA M~N'$}
+			\end{prooftree}
+		\end{minipage}
+		\begin{minipage}{.3\textwidth}
+			\begin{prooftree}
+				\AxiomC{$M\FULLBETA M'$}
+				\UnaryInfC{$\lambda.M\FULLBETA \lambda.M'$}
+			\end{prooftree}
+		\end{minipage}
+	\end{center}
+	\caption{Our modified definitions for the call-by-name $\lambda$-calculus and $\beta$-reduction}
+	\label{fig:modified-name}
+\end{figure}
+%
+\begin{figure}[tp]
+	\textbf{De Bruijn indexed syntax}
+	\[ \begin{array}{llcl}
+		\mbox{Values}\quad & V\quad & ::=\quad & \lambda . M \\
+		\mbox{Answers}\quad & A\quad & ::=\quad & V~|~\LET{\_}{M}{A} \\
+		\mbox{Terms}\quad & M,N\quad & ::=\quad & x~|~V~|~M~N~|~\LET{\_}{M}{N} \\
+	\end{array} \]
+%
+	\textbf{Reduction rules}
+	\begin{center}
+		\begin{minipage}{.4\textwidth}
+			\begin{prooftree}
+				\AxiomC{}
+				\UnaryInfC{$(\lambda.M)~N \xrightarrow{I} \LET{\_}{N}{M}$}
+			\end{prooftree}
+		\end{minipage}
+		\begin{minipage}{.5\textwidth}
+			\begin{prooftree}
+				\AxiomC{$\DEMAND{0}{M}$}
+				\UnaryInfC{$\LET{\_}{V}{M} \CALLBYNEEDVCA M[0\mapsto V]$}
+			\end{prooftree}
+		\end{minipage}
+	\end{center}
+%
+	\begin{prooftree}
+		\AxiomC{}
+		\UnaryInfC{$(\LET{\_}{M}{A})~N \CALLBYNEEDVCA \LET{\_}{M}{A~\SHIFT{{}}{N}}$}
+	\end{prooftree}
+	\begin{prooftree}
+		\AxiomC{$\DEMAND{0}{N}$}
+		\UnaryInfC{$\LET{\_}{(\LET{\_}{M}{A})}{N} \CALLBYNEEDVCA \LET{\_}{M}{\LET{\_}{A}{\SHIFT{1}{N}}}$}
+	\end{prooftree}
+%
+	\textbf{Context rules}
+	\begin{center}
+		\begin{minipage}{.2\textwidth}
+			\begin{prooftree}
+				\AxiomC{}
+				\UnaryInfC{$\DEMAND{x}{x}$}
+			\end{prooftree}
+		\end{minipage}
+		\begin{minipage}{.3\textwidth}
+			\begin{prooftree}
+				\AxiomC{$\DEMAND{x}{M}$}
+				\UnaryInfC{$\DEMAND{x}{M~N}$}
+			\end{prooftree}
+		\end{minipage}
+		\begin{minipage}{.4\textwidth}
+			\begin{prooftree}
+				\AxiomC{$\DEMAND{x + 1}{N}$}
+				\UnaryInfC{$\DEMAND{x}{\LET{\_}{M}{N}}$}
+			\end{prooftree}
+		\end{minipage}
+	\end{center}
+	\begin{center}
+		\begin{minipage}{.4\textwidth}
+			\begin{prooftree}
+				\AxiomC{$\DEMAND{x}{M}$}
+				\AxiomC{$\DEMAND{0}{N}$}
+				\BinaryInfC{$\DEMAND{x}{\LET{\_}{M}{N}}$}
+			\end{prooftree}
+		\end{minipage}
+		\begin{minipage}{.5\textwidth}
+			\begin{prooftree}
+				\AxiomC{$N \CALLBYNEEDI N'$}
+				\UnaryInfC{$\LET{\_}{M}{N} \CALLBYNEEDI \LET{\_}{M}{N'}$}
+			\end{prooftree}
+		\end{minipage}
+	\end{center}
+	\begin{center}
+		\begin{minipage}{.3\textwidth}
+			\begin{prooftree}
+				\AxiomC{$M \CALLBYNEEDI M'$}
+				\UnaryInfC{$M~N \CALLBYNEEDI M'~N$}
+			\end{prooftree}
+		\end{minipage}
+		\begin{minipage}{.5\textwidth}
+			\begin{prooftree}
+				\AxiomC{$M \CALLBYNEEDI M'$}
+				\AxiomC{$\DEMAND{0}{N}$}
+				\BinaryInfC{$\LET{\_}{M}{N} \CALLBYNEEDI \LET{\_}{M'}{N}$}
+			\end{prooftree}
+		\end{minipage}
+	\end{center}
+%
+	\begin{center}
+		\begin{minipage}{.5\textwidth}
+			\begin{prooftree}
+				\AxiomC{$N \CALLBYNEEDVCA N'$}
+				\UnaryInfC{$\LET{\_}{M}{N} \CALLBYNEEDVCA \LET{\_}{M}{N'}$}
+			\end{prooftree}
+		\end{minipage}
+		\begin{minipage}{.3\textwidth}
+			\begin{prooftree}
+				\AxiomC{$M \CALLBYNEEDVCA M'$}
+				\UnaryInfC{$M~N \CALLBYNEEDVCA M'~N$}
+			\end{prooftree}
+		\end{minipage}
+	\end{center}
+	\begin{prooftree}
+		\AxiomC{$M \CALLBYNEEDVCA M'$}
+		\AxiomC{$\DEMAND{0}{N}$}
+		\BinaryInfC{$\LET{\_}{M}{N} \CALLBYNEEDVCA \LET{\_}{M'}{N}$}
+	\end{prooftree}
+	\caption{Our modified call-by-need $\lambda$-calculus}
+	\label{fig:modified-need}
+\end{figure}
+
+We use de Bruijn indices for simple manipulation of binding.
+Fortunately, Ariola and Felleisen's semantics is straightforwardly adaptable for de Bruijn indices
+since only a constant number of bindings are inserted or hoisted by a reduction.
+We use the auxiliary operation $\SHIFT{c}{M}$ called ``shifting'',
+which increments the indices of the free variables in $M$ above the ``cutoff'' $c$ as follows:
+\[\begin{array}{rcl}
+	\SHIFT{c}{x} & = &
+		\begin{cases}
+			x & \text{if $x < c$} \\
+			x + 1 & \text{if $x \geq c$}
+		\end{cases} \\
+	\SHIFT{c}{\lambda.M} & = & \lambda. \SHIFT{c + 1}{M} \\
+	\SHIFT{c}{(M~N)} & = & (\SHIFT{c}{M})~(\SHIFT{c}{N}) \\
+	\SHIFT{c}{(\LET{\_}{M}{N})} & = & (\LET{\_}{\SHIFT{c}{M}}{\SHIFT{c+1}{N}})
+\end{array} \]
+We write $\SHIFT{{}}{M}$ for $\SHIFT{0}{M}$.
+In Coq, we use Autosubst \cite{Schaefer15} to automatically derive operations such as shifting on terms using de Bruijn indices, and their metatheories including basic properties of substitutions.
+
+Although evaluation contexts reduce the number of reduction rules,
+explicit treatment of contexts often hinders automated reasoning.%
+\footnote{\label{the-footnote}Another drawback is that evaluation contexts may introduce an arbitrary number of bindings and therefore need to be indexed by that number to coexist with de Bruijn indices,
+requiring heavy natural number calculations---like the Omega \cite{Coq:manual} library for Presburger arithmetic---in the mechanized proofs.
+Our approach will also obviate the need for such calculations.}
+For example, consider the clause \ref{enum:total-need} of \lemmaname~\ref{determinism-of-call-by-need}.
+To prove case (b) % TODO \ref{enum:determinism-of-call-by-need-demand}, % case (b)
+we need to find a concrete $E$ such that $M=E[x]$, which requires second-order unification \cite{Goldfarb81} in general.  More concretely, in Coq, the lemma could be written like
+\begin{verbatim}
+Lemma answer_or_stuck_or_reducible M :
+  answer M \/
+  (exists E x, evalctx E /\ M = E.[tvar x] /\ bv E <= x) \/
+  (exists E L N, evalctx E /\ M = E.[L] /\ reduceI L N) \/
+  (exists E L N, evalctx E /\ M = E.[L] /\ reduceVCA L N).
+\end{verbatim}
+where \verb|bv E <= x| means that $x$ is not captured in $E$.
+This statement can be proved by induction on $M$, where we first encounter the case $M$ is a variable $x$:
+\begin{verbatim}
+4 subgoals
+
+  x : var
+  ============================
+  answer M \/
+  (exists E y, evalctx E /\ tvar x = E.[tvar y] /\ bv E <= y) \/
+  (exists E L N, evalctx E /\ tvar x = E.[L] /\ reduceI L N) \/
+  (exists E L N, evalctx E /\ tvar x = E.[L] /\ reduceVCA L N)
+\end{verbatim}
+However, automation fails even though the above disjunction is obviously true by the second clause with $E = []$:
+\begin{verbatim}
+Coq < eauto.
+
+4 subgoals
+
+  x : var
+  ============================
+  answer M \/
+  (exists E y, evalctx E /\ tvar x = E.[tvar y] /\ bv E <= y) \/
+  (exists E L N, evalctx E /\ tvar x = E.[L] /\ reduceI L N) \/
+  (exists E L N, evalctx E /\ tvar x = E.[L] /\ reduceVCA L N)
+\end{verbatim}
+
+We avoid the above problem by eliminating evaluation contexts by expanding their definition in reductions $\FULLBETA$, $\CALLBYNAME$, $\CALLBYNEEDI$, and $\CALLBYNEEDVCA$, and devising \emph{stuckness predicates} $\STUCK{x}{M}$ and $\DEMAND{x}{M}$, corresponding to ``\emph{$M=E_\mathrm{n}[x]$ for some $E_\mathrm{n}$}'' and ``\emph{$M=E[x]$ for some $E$}'', respectively, as in \figurename~\ref{fig:modified-need}.
+(Note that, unlike evaluation contexts, each derivation rule of $\DEMAND{x}{M}$ inserts only at most one $\mathbf{let}$-binding at once; cf. footnote {\ref{the-footnote}}.)
+The only deviation is thunk dereference
+$\LET{x}{V}{E[x]} \CALLBYNEEDVCA \LET{x}{V}{E[V]}$, where we approximate the operation $E[V]$ by substitution $(E[x])[x\mapsto V]$.  Although the latter may substitute extra occurrences of $x$ in $E$ itself, it is semantically equivalent to the former since $V$ is already a value.
+Here our formalization favors simplicity over faithfulness and slightly differs from the original definition.  It is also straightforward (though cumbersome) to adhere to the original by defining a partial function that substitutes a given value $V$ with a given variable $x$ in a redex position of a given term $M$.
+
+After the elimination of evaluation contexts, we can now prove clause \ref{enum:total-need} of \lemmaname~\ref{determinism-of-call-by-need} almost automatically as follows:
+\begin{verbatim}
+Lemma answer_or_stuck_or_reducible M :
+  answer M \/
+  (exists x, needs M x) \/
+  (exists N, reduceI M N) \/
+  (exists N, reduceVCA M N).
+Proof.
+  induction M as
+    [|? [Hanswer|[[]|[[]|[]]]]
+    ||? [Hanswer|[[]|[[]|[]]]] ? [|[[[]]|[[]|[]]]]]; eauto 6;
+    inversion Hanswer; subst; eauto 6.
+Qed.
+\end{verbatim}
+
+Let us overview the other changes by our elimination of evaluation contexts:
+clause \ref{enum:det-name-context} of \lemmaname~\ref{determinism-of-call-by-name} becomes ``\emph{if $\STUCK{x}{M}$ and $\STUCK{y}{M}$, then $x=y$}'';
+case
+(b) % TODO: \ref{enum:det-name-total-demand}
+of clause \ref{enum:det-name-total} of \lemmaname~\ref{determinism-of-call-by-name} changes to ``\emph{$\STUCK{x}{M}$ for some $x$}'';
+clause \ref{enum:demands} of \lemmaname~\ref{determinism-of-call-by-need} to ``\emph{If $\DEMAND{x}{M}$ and $\DEMAND{y}{M}$, then $x=y$}'';
+case
+(b) % TODO: \ref{enum:determinism-of-call-by-need-demand}
+of clause \ref{enum:total-need} of \lemmaname~\ref{determinism-of-call-by-need} to ``\emph{$\DEMAND{x}{M}$ for some $x$}'';
+and clause \ref{enum:stuck} of \lemmaname~\ref{lemma:single-step-soundness} to ``\emph{If $\DEMAND{x}{M}$ then $\STUCK{x}{\EXPANDLET{M}}$}''.
+The proofs of these lemmas proceed by induction on the derivation of $\STUCK{x}{M}$ or $\DEMAND{x}{M}$ instead of structural induction on evaluation contexts.
+
+Another devisal in our Coq formalization is replacing the \emph{reductio ad impossibilem} for the normalization proof of \theoremname~\ref{theorem:completeness} (completeness) in Section \ref{sec:informal-proofs}, with an intuitionistic, constructive proof as follows:
+\begin{proof}[\theoremname~\ref{theorem:completeness}, constructive version]
+	By \lemmaname~\ref{quasi-normalization}, $\EXPANDLET{M}$ is terminating by ${\CALLBYNAME}\circ{\RTCLOS{\FULLBETA}}$.
+	Let us define $L \Downarrow$, meaning that $L$ is terminating by ${\CALLBYNAME}\circ{\RTCLOS{\FULLBETA}}$, inductively as:
+	$(\forall L'. L {\CALLBYNAME}\circ{\RTCLOS{\FULLBETA}} L' \Rightarrow L' \Downarrow) \Rightarrow L \Downarrow$.\footnote{This definition is adopted from the accecibility predicate \texttt{Acc} in Coq.}
+	We then prove a stronger property that, for any $M'$, $M' \Downarrow$ implies
+\begin{quote}
+for any $M$, if $M' = \EXPANDLET{M}$, then $M$ terminates by $\CALLBYNEED$
+\end{quote}
+by induction on the definition of $M' \Downarrow$.
+The above statement is trivially true if $M$ is already a call-by-need normal form.
+If $M \CALLBYNEEDI N$, then by clause \ref{enum:actual} of \lemmaname~\ref{lemma:single-step-soundness} we have
+$\EXPANDLET{M} {\CALLBYNAME}\circ{\RTCLOS{\FULLBETA}} \EXPANDLET{N}$, and by the induction hypothesis we have that $N$ terminates by $\CALLBYNEED$.
+If $M \CALLBYNEEDVCA N$, then by clause \ref{enum:administrative} of \lemmaname~\ref{lemma:single-step-soundness} we have $\EXPANDLET{M} = \EXPANDLET{N}$ and the conclusion follows from a double, inner induction on reductions by $\CALLBYNEEDVCA$, which is finite by \lemmaname~\ref{lemma:VCA-terminates}.
+
+The rest of the proof is similar to that in Section \ref{sec:informal-proofs}.
+\end{proof}
+%
+\section{Related work}\label{sec:previous-researches}
+%
+Call-by-name and, to a lesser degree, call-by-need evaluations have been investigated for more than decades.
+We here focus on notable previous researches on the correspondence between call-by-need and call-by-name (other than Ariola and Felleisen \cite{Ariola97}, which we have already reviewed in Section \ref{sec:call-by-need}), and discuss their differences from our approach.
+
+\begin{itemize}
+\item
+Launchbury \cite{Launchbury93} gave a natural semantics for call-by-need evaluation and proved its adequacy with respect to call-by-name evaluation.
+He defined judgements of the form $\Gamma : e \Downarrow \Delta : z$, meaning ``term $e$ under store $\Gamma$ evaluates to value $z$, yielding a modified store $\Delta$''.
+%
+The key of his semantics is a ``dual use'' of variables as pointers to thunks.
+This technique makes their semantics simpler than conventional operational semantics based on abstract machines.
+
+\qquad However, Launchbury's semantics is still inconvenient for mechanical verification because of subtle variable convention:
+for example, let us evaluate term $\mathbf{let}~u=3, f = (\lambda x.\LET{v}{u+1}{v+x})~\mathbf{in}~f~2+f~3$.
+%
+We must rename the bound variable $v$ in the body of the function $f$ every time it called,
+because the pointers to the thunks are identified with variable names.
+\medskip
+\item
+Maraist et al. \cite{Maraist98} gave a small-step semantics for call-by-need evaluation and proved its correspondence (full abstraction) with call-by-name.
+Their semantics is almost the same as Ariola and Felleisen's,
+making the former's proof method also useful for the latter.
+(The difference between the two semantics is that, in Maraist et al., variables are values, and an additional reduction rule
+$\LET{x}{M}{N} \rightarrow N \quad (x \notin \mathbf{FV}(N))$
+is introduced for garbage collection.)
+
+\qquad A point of Maraist et al.'s proof is the introduction of \emph{marks} on redexes for call-by-need reductions (I, V, C, or A).
+Their approach seems natural for proving the confluence of their non-deterministic reductions but significantly complicates the definitions of terms and reductions in a mechanized metatheory.
+
+\qquad Although we did not directly adopt Maraist et al.'s formalism,
+it influenced our correspondence $\EXPANDLET{M}$ of call-by-need terms with call-by-name, and our measure function in the proof of \lemmaname~\ref{lemma:VCA-terminates}.
+\medskip
+\item
+Chang and Felleisen \cite{Chang12} proposed a variant of Ariola and Felleisen's semantics and proved its correspondence with Launchbury's semantics.
+They gave a simpler reduction rule with arguably more complicated evaluation contexts instead of administrative reductions.
+As argued in Section~\ref{sec:formalization},
+we avoided any use of evaluation contexts for the sake of easier automation and formalization with de Bruijn indices.
+\end{itemize}
+
+\section{Conclusion}\label{sec:conclusion}
+%
+We formalized a variant of Ariola and Felleisen's small-step operational semantics of call-by-need $\lambda$-calculus and proved its correspondence with call-by-name, using the Coq proof assistant.
+For the formal verification,
+we developed a simpler proof based on two forms of standardization (\lemmaname~\ref{normalization} and \ref{quasi-normalization}),
+adopting de Bruijn indices for representation of variable binding.
+Along the way, we simplified the formalization and enabled more automation by replacing evaluation contexts with more specific definitions (Section \ref{sec:formalization}).
+
+\paragraph{Future work.}
+%
+We plan to extend our target language to more practical languages.
+Data types such as tuples and sums should be straightforward since they are already in weak head normal form.
+The most interesting challenge would be recursive definitions, because they cannot be completely inlined when establishing the correspondence with call-by-name (cf. Definition \ref{def:expandlet}).
+A natural starting point here may be Ariola and Blom's well-known theory of cyclic $\lambda$-calculus \cite{Ariola:1997}.
+Another (though smaller) issue is binary operations (such as arithmetic addition $+$), for which non-deterministic (but strict) evaluation of the operands may be desirable.
+%
+\bibliographystyle{splncs}
+\bibliography{refs}
+%
+\end{document}
+
+

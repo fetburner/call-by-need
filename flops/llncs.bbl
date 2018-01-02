@@ -1,0 +1,166 @@
+\begin{thebibliography}{10}
+
+\bibitem{Abramsky90}
+Abramsky, S.:
+\newblock {T}he {L}azy {L}ambda {C}alculus.
+\newblock In Turner, D.A., ed.: Research Topics in Functional Programming.
+\newblock Addison-Wesley Publishing Company (1990)  65--116
+
+\bibitem{Ong88}
+Ong, C.L.:
+\newblock {F}ully {A}bstract {M}odels of the {L}azy {L}ambda {C}alculus.
+\newblock In: 29th Annual Symposium on Foundations of Computer Science, White
+  Plains, New York, USA, 24-26 October 1988, {IEEE} Computer Society (1988)
+  368--376
+
+\bibitem{Wadsworth71}
+Wadsworth, C.P.:
+\newblock {S}emantics and {P}ragmatics of the {L}ambda {C}alculus.
+\newblock PhD thesis, Oxford University (1971)
+
+\bibitem{Launchbury93}
+Launchbury, J.:
+\newblock {A} {N}atural {S}emantics for {L}azy {E}valuation.
+\newblock In Deusen, M.S.V., Lang, B., eds.: Conference Record of the Twentieth
+  Annual {ACM} {SIGPLAN-SIGACT} Symposium on Principles of Programming
+  Languages, Charleston, South Carolina, USA, January 1993, {ACM} Press (1993)
+  144--154
+
+\bibitem{Ariola97}
+Ariola, Z.M., Felleisen, M.:
+\newblock {T}he {C}all-{B}y-{N}eed lambda {C}alculus.
+\newblock J. Funct. Program. \textbf{7}(3) (1997)  265--301
+
+\bibitem{Maraist98}
+Maraist, J., Odersky, M., Wadler, P.:
+\newblock {T}he {C}all-by-{N}eed {L}ambda {C}alculus.
+\newblock J. Funct. Program. \textbf{8}(3) (1998)  275--317
+
+\bibitem{Kesner16}
+Kesner, D.:
+\newblock {R}easoning {A}bout {C}all-by-need by {M}eans of {T}ypes.
+\newblock In Jacobs, B., L{\"{o}}ding, C., eds.: Foundations of Software
+  Science and Computation Structures - 19th International Conference, {FOSSACS}
+  2016, Held as Part of the European Joint Conferences on Theory and Practice
+  of Software, {ETAPS} 2016, Eindhoven, The Netherlands, April 2-8, 2016,
+  Proceedings. Volume 9634 of Lecture Notes in Computer Science., Springer
+  (2016)  424--441
+
+\bibitem{Accattoli14}
+Accattoli, B., Barenbaum, P., Mazza, D.:
+\newblock {D}istilling {A}bstract {M}achines.
+\newblock In Jeuring, J., Chakravarty, M.M.T., eds.: Proceedings of the 19th
+  {ACM} {SIGPLAN} international conference on Functional programming,
+  Gothenburg, Sweden, September 1-3, 2014, {ACM} (2014)  363--376
+
+\bibitem{Johnsson84}
+Johnsson, T.:
+\newblock {E}fficient {C}ompilation of {L}azy {E}valuation.
+\newblock In Deusen, M.S.V., Graham, S.L., eds.: Proceedings of the 1984
+  {SIGPLAN} Symposium on Compiler Construction, Montreal, Canada, June 17-22,
+  1984, {ACM} (1984)  58--69
+
+\bibitem{PeytonJones92}
+{Peyton Jones}, S.L.:
+\newblock {I}mplementing {L}azy {F}unctional {L}anguages on {S}tock {H}ardware:
+  {T}he {S}pineless {T}agless {G}-{M}achine.
+\newblock J. Funct. Program. \textbf{2}(2) (1992)  127--202
+
+\bibitem{Fairbairn87}
+Fairbairn, J., Wray, S.:
+\newblock {TIM:} {A} simple, lazy abstract machine to execute
+  supercombinatorics.
+\newblock In Kahn, G., ed.: Functional Programming Languages and Computer
+  Architecture, Portland, Oregon, USA, September 14-16, 1987, Proceedings.
+  Volume 274 of Lecture Notes in Computer Science., Springer (1987)  34--45
+
+\bibitem{deBruijn72}
+de~{B}ruijn, N.:
+\newblock {L}ambda calculus notation with nameless dummies, a tool for
+  automatic formula manipulation, with application to the {C}hurch-{R}osser
+  theorem.
+\newblock Indagationes Mathematicae (Proceedings) \textbf{75}(5) (1972)
+  381--392
+
+\bibitem{Gordon93}
+Gordon, A.D.:
+\newblock {A} {M}echanisation of {N}ame-{C}arrying {S}yntax up to
+  {A}lpha-{C}onversion.
+\newblock In: {H}igher {O}rder {L}ogic {T}heorem {P}roving and its
+  {A}pplications, 6th {I}nternational Workshop, {HUG} '93, Vancouver, BC,
+  Canada, August 11-13, 1993, Proceedings. (1993)  413--425
+
+\bibitem{Mckinna99}
+McKinna, J., Pollack, R.:
+\newblock {S}ome {L}ambda {C}alculus and {T}ype {T}heory {F}ormalized.
+\newblock J. Autom. Reasoning \textbf{23}(3-4) (1999)  373--409
+
+\bibitem{McBride04}
+McBride, C., McKinna, J.:
+\newblock {F}unctional {P}earl: {I} am not a {N}umber--{I} am a {F}ree
+  {V}ariable.
+\newblock In Nilsson, H., ed.: Proceedings of the {ACM} {SIGPLAN} Workshop on
+  Haskell, Haskell 2004, Snowbird, UT, USA, September 22-22, 2004, {ACM} (2004)
+   1--9
+
+\bibitem{Pfenning88}
+Pfenning, F., Elliott, C.:
+\newblock {H}igher-{O}rder {A}bstract {S}yntax.
+\newblock In Wexelblat, R.L., ed.: Proceedings of the {ACM} SIGPLAN'88
+  Conference on Programming Language Design and Implementation (PLDI), Atlanta,
+  Georgia, USA, June 22-24, 1988, {ACM} (1988)  199--208
+
+\bibitem{Chlipala08}
+Chlipala, A.:
+\newblock {P}arametric {H}igher-{O}rder {A}bstract {S}yntax for {M}echanized
+  {S}emantics.
+\newblock In Hook, J., Thiemann, P., eds.: Proceeding of the 13th {ACM}
+  {SIGPLAN} international conference on Functional programming, {ICFP} 2008,
+  Victoria, BC, Canada, September 20-28, 2008, {ACM} (2008)  143--156
+
+\bibitem{Barendregt-84}
+Barendregt, H.P.:
+\newblock The Lambda Calculus: Its Syntax and Semantics. Revised edn. Volume
+  103 of Studies in Logic and the Foundations of Mathematics.
+\newblock North-Holland (1984)
+
+\bibitem{Schaefer15}
+Sch{\"{a}}fer, S., Tebbi, T., Smolka, G.:
+\newblock Autosubst: Reasoning with de {B}ruijn terms and parallel
+  substitutions.
+\newblock In Urban, C., Zhang, X., eds.: Interactive Theorem Proving - 6th
+  International Conference, {ITP} 2015, Nanjing, China, August 24-27, 2015,
+  Proceedings. Volume 9236 of Lecture Notes in Computer Science., Springer
+  (2015)  359--374
+
+\bibitem{Coq:manual}
+Cr\'{e}gut, P.:
+\newblock {O}mega: a solver of quantifier-free problems in {P}resburger
+  {A}rithmetic.
+\newblock In: {T}he {C}oq proof assistant reference manual.
+\newblock (2017) Version 8.7.0.
+
+\bibitem{Goldfarb81}
+Goldfarb, W.D.:
+\newblock {T}he {U}ndecidability of the {S}econd-{O}rder {U}nification
+  {P}roblem.
+\newblock Theor. Comput. Sci. \textbf{13} (1981)  225--230
+
+\bibitem{Chang12}
+Chang, S., Felleisen, M.:
+\newblock {T}he {C}all-by-{N}eed {L}ambda {C}alculus, {R}evisited.
+\newblock In Seidl, H., ed.: Programming Languages and Systems - 21st European
+  Symposium on Programming, {ESOP} 2012, Held as Part of the European Joint
+  Conferences on Theory and Practice of Software, {ETAPS} 2012, Tallinn,
+  Estonia, March 24 - April 1, 2012. Proceedings. Volume 7211 of Lecture Notes
+  in Computer Science., Springer (2012)  128--147
+
+\bibitem{Ariola:1997}
+Ariola, Z.M., Blom, S.:
+\newblock {C}yclic {L}ambda {C}alculi.
+\newblock In Abadi, M., Ito, T., eds.: Theoretical Aspects of Computer
+  Software, Third International Symposium, {TACS} '97, Sendai, Japan, September
+  23-26, 1997, Proceedings. Volume 1281 of Lecture Notes in Computer Science.,
+  Springer (1997)  77--106
+
+\end{thebibliography}
