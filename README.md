@@ -1,10 +1,10 @@
 # call-by-need
-This repository contains a formalization of Ariola and Felleisen's call-by-need lambda calculus and a proof of its correpondence with call-by-name. The proof is based on the standardization theorem and the elimination of evaluation contexts. For more detail, see the submission `flops/`.
+This repository contains a formalization of Ariola and Felleisen's call-by-need lambda calculus and a proof of its correpondence with call-by-name. The proof is based on the standardization theorem and the elimination of evaluation contexts. For more detail, see the submission `flops.pdf`.
 
 ## Directory structure
 ```
 .
-├── flops                       # A submission for FLOPS 2018
+├── flops.pdf                   # A submission for FLOPS 2018
 ├── lambda                      # Coq scripts for basic properties of untyped lambda calculus
 ├── let                         # Coq scripts for Ariola and Felleisen's call-by-need lambda calculus
 |   ├── NeedNameCorrespond.v    # The proof of our main theorem, the correspondence between our modified call-by-need lambda calculus and call-by-name lambda calculus
