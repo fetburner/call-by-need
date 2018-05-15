@@ -1,0 +1,147 @@
+Our motivational problem is a gap between high-level abstraction of non-strict languages---call-by-name evaluation---and actual call-by-need implementations.
+To bridge this gap, we verify their correspondence.
+
+Full-beta reduction is one of a theoretical background of functional languages.
+But it's non-deterministic.
+Reduction may causes infinite loop.
+
+Call-by-name is a better abstraction of functional languages.
+It reduces the head of applications, so deterministic.
+In addition, terms which are evaluable by full-beta reduction, are also evaluable by call-by-name reduction.
+
+Therefore, actual implementations reuses the result of evaluation, namely, call-by-need reduction.
+Its behaviour should correspond with call-by-name.
+
+Our contribution are twofold;
+formalization of Ariola and felleisen's call-by-need lambda calculus in Coq proof assistant and
+a simplified proof of correspondence with call-by-name, and verification in Coq.
+Our proof uses Curry and Feys's standardization theorem.
+In this presentation, I'd like to focus on this simplified proof.
+
+The outline of this presentation is as follows.
+
+First, I'd like to explain the target languages: call-by-name λ-calculus and call-by-need λ-calculus
+
+The definition of first target language, call-by-name lambda calculus is as follows.
+Terms are the same with ordinal lambda calculus.
+Values are lambda abstractions.
+Evaluation contexs are either hole or the left side of application.
+In this language, reduction is deterministic and all stuck states are represented by evaluation contexts and variables
+
+These properties are stated as follows.
+Call-by-name reduction is a partial function.
+Contents of stuck states are unique.
+For any term M, exactly one of the following holds:
+M is a value,
+M is a stuck state or
+M is reducible by call-by-name reduction.
+That is, no terms are value and also stuck state.
+
+Now, I'd like to introduce a important property, standardization theorem.
+It means that any reduction sequences are sortable by reduction position in left-to-right, outside-to-inside order.
+
+Standardization theorem gives two important corollaries.
+First, the termination of call-by-name reduction:
+terms which are evaluable by full-beta reduction, are also evaluable by call-by-name reduction.
+Second, the termination of the composition of call-by-name reduction and multi-step full-beta reductions:
+If M is evaluable, any reductions beginning at M always terminate despite non-determinacy.
+These corollaries are used for our proof of the correspondence with call-by-need.
+
+The definition of second target language, Ariola and Felleisen's call-by-need lambda calculus is as follows.
+A syntactic form let x = M in N is introduced for representing M contained thunk is referenced as x by N.
+The reduction rule (I) corresponding with function calls create thunk instead of substituting.
+The content of a thunk is reduced when needed.
+And be substituted if evaluated.
+Now, we define reductions made from specific rules.
+Arrow I is reduction only using rule (I).
+This reduction corresponds actual reduction.
+Arrow VCA is reduction only using rule (I), (C) and (A).
+This reduction is administrative.
+
+Call-by-need reduction is also deterministic.
+
+Next, I'd like to talk about the main subject of this presentation, simplified proof of the correspondence.
+
+Let us define the correspondence of terms by let expansion.
+It's almost equivalent to Maraist et alii's definition expect marked redexes.
+
+Now, the main theorem, correspondence of call-by-need with call-by-name is stated as follows.
+Forward direction, soundness of call-by-need is
+``If m is evaluated to an answer, M pitchfork is evaluable''.
+Backward direction, completeness of call-by-need is
+``If M pitchfork is evaluated, M is evaluable to an answer''.
+Note that the correspondence between the answer and the values also holds.
+
+Let us reference previous researches
+Ariola and Felleisen's proof is not suitable for formal verification because it's based on informally defined term graphs and their correspondence.
+Maraist et alii's proof is convenient for neither mechanization nor paper-and-pencil due to complicated ``marked reduction'' and explicit treatment of reduction position
+So we gave a simpler proof!
+
+I'd like to explain our proof.
+For preparation, we state the lemmma, single-step correspondence.
+Answers correspond value.
+Stuck states in call-by-need correspond stuck states in call-by-name.
+Arrow VCA is administrative.
+Arrow I corresponds the composition of call-by-name reduction and additional full-beta reductions.
+
+The forward direction of main theorem, soundness of call-by-need is easily proved.
+By assumption, M pitchfork is reduced to A pitchfork by multi-step full-beta reduction
+Since A is an answer, A pitchfork is a value
+Hence M pitchfork is evaluated by the termination of call-by-name reduction
+
+The backward direction of main theorem, completeness of call-by-need is harder than forward direction.
+Let us review the statement.
+If M pitchfork evaluated, then M evaluable to a answer.
+The difficulties are twofold.
+First, administrative reduction might not terminate.
+Second, arrow I corresponds the composition of call-by-need reduction and multi-step full-beta reduction.
+That is bodies of lambda abstraction may be reduced.
+
+To solve the first difficulty, we show the normalization of administrative reduction.
+This lemma is proved by a variant of Maraist et alii's weighting.
+
+Now, I'd like to show the completeness of call-by-need.
+First, we show the call-by-need reduction of M is normalizing.
+Since call-by-need reduction corresponds the union of arrow I and arrow VCA, multi-step call-by-need reduction corresponds the repetition of the composition of multi-step arrow VCA and arrow I.
+Note that arrow VCA is administrative reduction and arrow I corresponds the composition of call-by-name reduction and multi-step full-beta reduction.
+Because M pitchfork is evaluable by full-beta reduction, M pitchfork is terminating by the composition of call-by-name reduction and multi-step full-beta reduction.
+Namely, induction on derivation is available.
+
+Next, we show the normal form N of M is an answer.
+The normal form N is an answer of stuck state.
+Assume N is stuck state, show it leads to contradiction.
+By singlestep correspondence, M pitchfork is reduced into N pitchfork
+E[x] pitchfork is also stuck state E_n[x]
+By confluence of full-beta reduction, V and E_n[x] is conflate into L.
+Full-beta reduction preserves valueness and stuckness in call-by-name.
+Namely, L is a value and also stuck state.
+It leads to contradiction.
+
+Next, I'd like to talk about Coq formalization.
+
+Our formalization is almost straightforward, expect treatment of evaluation contexts.
+Let us show the determinacy of call-by-need reduction by induction on M.
+
+The first case is variable.
+It is trivial from E equals hole.
+
+However, automated reasoning fails.
+
+Why reasoning fails?
+To prove the subgoal, we must find E such that x = E.[y]
+Since hole filling is implemented as function, higher order pattern matching is needed!
+
+Our solution is the elimination of evaluation contexts.
+we expand evaluation contexts into reductions,
+introduce stuckness predicate,
+and approximate the reduction rule (V) by substitution.
+Note that the correspondence in original semantics is also proved.
+
+Thanks to the elimination of evaluation contexts, proof automation succeeds as follows
+
+Finally, I'd like to conclude.
+
+We formalized Ariola and felleisen's call-by-need lambda calculus in Coq proof assistant,
+gave standardization theorem based simplified proof of correspondence of call-by-name, and verified in Coq.
+Thank you for listening.
+

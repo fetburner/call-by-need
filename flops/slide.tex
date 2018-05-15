@@ -1,0 +1,900 @@
+\documentclass[dvipdfmx,cjk,xcolor=dvipsnames,envcountsect,notheorems,12pt]{beamer}
+% * 16:9 のスライドを作るときは、aspectratio=169 を documentclass のオプションに追加する
+% * 印刷用の配布資料を作るときは handout を documentclass のオプションに追加する
+%   （overlay が全て一つのスライドに出力される）
+% 図
+% 準正規化定理とは何か復習 聴衆が覚えてない
+% 標準化定理
+% FLOPSに投稿中
+% 変更してないのも証明した 書いた方が良い
+% 完全性の証明の解説はゆっくり
+% 大まかな方針を解説するのでも良い
+% スライドを印刷する時は左から右に 隙間に合わせて直す
+
+\usepackage{pxjahyper}% しおりの文字化け対策 (なくても良い)
+\usepackage{amsmath,amssymb,amsfonts,amsthm,ascmac,cases,bm,pifont}
+\usepackage{graphicx}
+\usepackage[thicklines]{cancel}
+\usepackage{url}
+\usepackage{newtxmath}
+\usepackage{bussproofs}
+\usepackage{etex}
+\usepackage[all]{xy}
+\usepackage{mathtools}
+\usepackage[absolute, overlay]{textpos}
+
+% スライドのテーマ
+\usetheme{sumiilab}
+% ベースになる色を指定できる
+%\usecolortheme[named=Magenta]{structure}
+% 数式の文字が細くて見難い時は serif の代わりに bold にしましょう
+%\mathversion{bold}
+
+%% ===============================================
+%% スライドの表紙および PDF に表示される情報
+%% ===============================================
+
+%% 発表会の名前とか（省略可）
+\session{FLOPS 2018}
+%% スライドのタイトル
+\title{Formal Verification of\\ the Correspondence between \\ Call-by-Need and Call-by-Name}
+%% 必要ならば、サブタイトルも
+%\subtitle{}
+%% 発表者のお名前
+\author{\underline{Masayuki Mizuno} and Eijiro Sumii}
+%% 発表者の所属（[] 内は短い名前）
+%\institute[東北大学　住井・松田研]{工学部　電気情報物理工学科\\住井・松田研究室}% 学部生
+\institute[Tohoku University Sumii-Matsuda Laboratory]{Tohoku University}% 院生
+%% 発表する日
+\date{May 9, 2018}
+
+%% ===============================================
+%% 自動挿入される目次ページの設定（削除しても可）
+%% ===============================================
+
+%% section の先頭に自動挿入される目次ページ（削除すると、表示されなくなる）
+\AtBeginSection[]{
+\begin{frame}
+  \frametitle{Outline}
+	\begin{center}
+		\begin{minipage}{.9\textwidth}
+			\tableofcontents[sectionstyle=show/shaded,subsectionstyle=show/show/hide]
+		\end{minipage}
+	\end{center}
+\end{frame}}
+%%% subsection の先頭に自動挿入される目次ページ（削除すると、表示されなくなる）
+\AtBeginSubsection[]{
+\begin{frame}
+  \frametitle{Outline}
+	\begin{center}
+		\begin{minipage}{.9\textwidth}
+			\tableofcontents[sectionstyle=show/shaded,subsectionstyle=show/shaded/hide]
+		\end{minipage}
+	\end{center}
+\end{frame}}
+%
+%% 現在の section 以外を非表示にする場合は以下のようにする
+
+%% \AtBeginSection[]{
+%% \begin{frame}
+%%   \frametitle{Outline}
+%%   \tableofcontents[sectionstyle=show/hide,subsectionstyle=show/show/hide]
+%% \end{frame}}
+%% \AtBeginSubsection[]{
+%% \begin{frame}
+%%   \frametitle{Outline}
+%%   \tableofcontents[sectionstyle=show/hide,subsectionstyle=show/shaded/hide]
+%% \end{frame}}
+
+%% ===============================================
+%% 定理環境の設定
+%% ===============================================
+
+%\setbeamertemplate{theorems}[numbered]% 定理環境に番号を付ける
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+\newtheorem{axiom}{Axiom}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{corollary}{Corollary}
+\newtheorem{proposition}{Proposition}
+
+%% ===============================================
+%% ソースコードの設定
+%% ===============================================
+
+\usepackage{listings,jlisting}
+%\usepackage[scale=0.9]{DejaVuSansMono}
+
+\definecolor{DarkGreen}{rgb}{0,0.5,0}
+% プログラミング言語と表示するフォント等の設定
+\lstset{
+  language={[Objective]Caml},% プログラミング言語
+  basicstyle={\ttfamily\small},% ソースコードのテキストのスタイル
+  keywordstyle={\bfseries},% 予約語等のキーワードのスタイル
+  commentstyle={},% コメントのスタイル
+  stringstyle={},% 文字列のスタイル
+  frame=trlb,% ソースコードの枠線の設定 (none だと非表示)
+  numbers=none,% 行番号の表示 (left だと左に表示)
+  numberstyle={},% 行番号のスタイル
+  xleftmargin=5pt,% 左余白
+  xrightmargin=5pt,% 右余白
+  keepspaces=true,% 空白を表示する
+  mathescape,% $ で囲った部分を数式として表示する ($ がソースコード中で使えなくなるので注意)
+  % 手動強調表示の設定
+  moredelim=[is][\itshape]{@/}{/@},
+  moredelim=[is][\color{red}]{@r\{}{\}@},
+  moredelim=[is][\color{blue}]{@b\{}{\}@},
+  moredelim=[is][\color{DarkGreen}]{@g\{}{\}@},
+}
+\newcommand{\rightarrowdbl}{\rightarrow\mathrel{\mkern-14mu}\rightarrow}
+
+\newcommand{\xtwoheadrightarrow}[2][]{%
+  \xrightarrow[#1]{#2}\mathrel{\mkern-14mu}\rightarrow
+}
+
+\newcommand{\LET}[3]{\mathbf{let}~#1=#2~\mathbf{in}~#3}
+\newcommand{\EXPANDLET}[1]{#1^\pitchfork}
+\newcommand{\SIZE}[2]{\parallel #1 \parallel_{#2}}
+\newcommand{\FULLBETA}{\xrightarrow{\beta}}
+\newcommand{\CALLBYNEED}{\xrightarrow{\mathrm{need}}}
+\newcommand{\CALLBYNEEDI}{\xrightarrow{\mathrm{I}}}
+\newcommand{\CALLBYNEEDVCA}{\xrightarrow{\mathrm{VCA}}}
+\newcommand{\CALLBYNAME}{\xrightarrow{\mathrm{name}}}
+\newcommand{\DEMAND}[2]{\mathbf{needs}(#2, #1)}
+\newcommand{\STUCK}[2]{\mathbf{needs}_\mathrm{n}(#2, #1)}
+\newcommand{\RTCLOS}[1]{#1^*}
+\newcommand{\RTCLOSFULLBETA}{\xtwoheadrightarrow{\beta}}
+\newcommand{\RTCLOSCALLBYNEED}{\xtwoheadrightarrow{\mathrm{need}}}
+\newcommand{\RTCLOSCALLBYNEEDI}{\xtwoheadrightarrow{\mathrm{I}}}
+\newcommand{\RTCLOSCALLBYNEEDVCA}{\xtwoheadrightarrow{\mathrm{VCA}}}
+\newcommand{\RTCLOSCALLBYNAME}{\xtwoheadrightarrow{\mathrm{name}}}
+
+%% ===============================================
+%% 本文
+%% ===============================================
+\begin{document}
+% Thank you for introduction.
+% I'd like to talk about ``formal verification of the correspondence between call-by-need and call-by-name''.
+\frame[plain]{\titlepage}% タイトルページ
+
+%前半部分をさっさと進む
+%倍
+\begin{frame}
+	% Our motivational problem is a gap between high-level abstraction of non-strict languages---call-by-name evaluation---and actual call-by-need implementations.
+	% To bridge this gap, we verify their correspondence.
+	\frametitle{Motivation: a gap between abstraction and implementations of non-strict languages}
+	\begin{itemize}
+		\item Call-by-name [Abramsky 1990 etc.]:\\(high-level) abstraction of non-strict languages
+		\item Call-by-need [Wadsworth 1971 etc.]:\\implementations of non-strict languages
+	\end{itemize}
+	\vfill
+	\begin{center}
+		\Large
+		Our goal is mechanized verification of\\ their correspondence
+	\end{center}
+\end{frame}
+
+\begin{frame}
+	% Full-beta reduction is one of a theoretical background of functional languages.
+	% But it's non-deterministic.
+	% Inconsiderate reduction may causes infinite loop.
+	\frametitle{Background 1: full-$\beta$ reduction}
+	\vspace{-\baselineskip}
+	\begin{itemize}
+		\item Reduction is non-deterministic
+			\begin{itemize}
+				\item $\underline{(\lambda xy.~y)~\Omega} \FULLBETA \lambda y.~y$
+			\end{itemize}
+			\begin{itemize}
+				\item $(\lambda xy.~y)~\underline{\Omega} \FULLBETA (\lambda xy.~y)~\Omega$
+			\end{itemize}
+	\end{itemize}
+	\vfill
+	\begin{flushright}
+		\Large $\Omega=(\lambda x.~xx)~(\lambda x.~xx)$
+	\end{flushright}
+\end{frame}
+
+\begin{frame}
+	% Call-by-name is a better abstraction of functional languages.
+	% It reduces the head of applications, so deterministic.
+	% In addition, terms which are evaluable by full-beta reduction, are also evaluable by call-by-name reduction.
+	\frametitle{Background 2: call-by-name}
+	\begin{definition}[call-by-name]
+		\Large
+		\[ E_\mathrm{n} \vcentcolon\vcentcolon= [] ~|~ E_\mathrm{n}~M \]
+		\[ E_\mathrm{n}[(\lambda x.M)N] \CALLBYNAME E_\mathrm{n}[M[x \mapsto N]] \]
+	\end{definition}
+	\begin{itemize}
+		\item If $M \RTCLOSFULLBETA \lambda x. N$, then $M \RTCLOSCALLBYNAME \lambda x. N'$
+	\end{itemize}
+	\Large \[(\lambda xy.~y)~\Omega \RTCLOSCALLBYNAME \lambda y.~y\]
+\end{frame}
+
+\begin{frame}
+	% However, call-by-name sometimes needs redundant reductions due to redex duplication.
+	% For example, let me evaluate a term (\lambda x.~xx)~(I~I).
+	% Although full-beta reduction can evaluate in 3 steps, call-by-name reduction needs 4 steps!
+	\frametitle{Problem: Redundant reductions}
+	\Large
+	\begin{columns}[t]
+		\begin{column}{0.3\textwidth}
+			\[\begin{array}{l}
+				(\lambda x.~xx)~\underline{(I~I)} \\
+				\FULLBETA \underline{(\lambda x.~xx)~I} \\
+				\FULLBETA \underline{I~I} \\
+				\FULLBETA I \\
+			\end{array}\]
+		\end{column}
+		\begin{column}{0.4\textwidth}
+			\[\begin{array}{l}
+				\underline{(\lambda x.~xx)~(I~I)} \\
+				\CALLBYNAME \underline{I~I}~(I~I) \\
+				\CALLBYNAME \underline{I~(I~I)} \\
+				\CALLBYNAME \underline{I~I} \\
+				\CALLBYNAME I \\
+			\end{array}\]
+		\end{column}
+	\end{columns}
+	\vfill
+	\begin{flushright}
+		\Large $I=\lambda x.~x$
+	\end{flushright}
+\end{frame}
+
+\begin{frame}
+	% Therefore, actual implementations reuses the result of evaluation, namely, call-by-need reduction.
+	% Its behaviour should correspond with call-by-name.
+	\frametitle{Background 3: call-by-need}
+	\begin{itemize}
+		\item Reuse evaluation
+			\[\begin{array}{l}
+				(\lambda x.~xx)~(I~I) \\
+				\CALLBYNEED \LET{x}{\underline{I~I}}{x~x} \\
+				\CALLBYNEED \underline{\LET{x}{I}{x~x}} \\
+				\CALLBYNEED \LET{x}{I}{\underline{I~x}} \\
+			\end{array}\]
+		\item Should correspond with call-by-name
+	\end{itemize}
+\end{frame}
+
+\begin{frame}
+	% Our contribution are twofold;
+	% formalization of Ariola and felleisen's call-by-need lambda calculus in Coq proof assistant and
+	% a simplified proof of correspondence with call-by-name, and verification in Coq.
+	% Our proof uses Curry and Feys's standardization theorem.
+	% In this presentation, I'd like to focus on this simplified proof.
+	\frametitle{Our contributions}
+	\begin{itemize}
+		\item Formalization of call-by-need $\lambda$-calculus \mbox{[Ariola+ 1995]} in the Coq proof assistant
+		\vfill
+		\item \alert{Simplified proof} of correspondence with call-by-name, and verification in Coq
+			\begin{itemize}
+				\item using standardization theorem \mbox{[Curry\&Feys 1958]}
+			\end{itemize}
+	\end{itemize}
+\end{frame}
+
+% The outline of this presentation is as follows.
+\section*{Outline}
+\begin{frame}
+  \frametitle{Outline}
+	\begin{center}
+		\begin{minipage}{.9\textwidth}
+			\tableofcontents[sectionstyle=show,subsectionstyle=hide]
+		\end{minipage}
+	\end{center}
+\end{frame}
+
+% First, I'd like to explain the target languages: call-by-name $\lambda$-calculus and call-by-need $\lambda$-calculus
+\section{Call-by-name and call-by-need $\lambda$-calculi}
+
+\begin{frame}
+	% The definition of first target language, call-by-name lambda calculus is as follows.
+	% Terms are the same with ordinal lambda calculus.
+	% Values are lambda abstractions.
+	% Evaluation contexs are either hole or the left side of application.
+	% In this language, reduction is deterministic and all stuck states are represented by evaluation contexts and variables
+	\frametitle{Call-by-name $\lambda$-calculus}
+	\large
+	\vspace{-5mm}
+	\[ \begin{array}{llcl}
+		\mbox{Terms} & L,M,N & \vcentcolon\vcentcolon= & x~|~V~|~M~N \\
+		\mbox{Values (WHNF)} & V & \vcentcolon\vcentcolon= & \lambda x.M \\
+		\mbox{Evaluation contexts} & E_\mathrm{n} & \vcentcolon\vcentcolon= & [] ~|~ E_\mathrm{n}~M \\
+	\end{array} \]
+	\vfill
+	\[\frac{M \rightarrow N}{E_\mathrm{n}[M] \CALLBYNAME E_\mathrm{n}[N]}\]
+	\vfill
+	\[ \begin{array}{lrcl}
+		(\beta)\quad & (\lambda x.M)N & \rightarrow & M[x \mapsto N] \\
+	\end{array} \]
+	\vspace{-5mm}
+	\begin{itemize}
+		\item Reduction is deterministic
+		\item All stuck states are of the form $E_\mathrm{n}[x]$
+	\end{itemize}
+\end{frame}
+
+\begin{frame}
+	% These properties are stated as follows.
+	% Call-by-name reduction is a partial function.
+	% Contents of stuck states are unique.
+	% For any term $M$, exactly one of the following holds:
+	% $M$ is a value,
+	% $M$ is a stuck state or
+	% $M$ is reducible by call-by-name reduction.
+	% That is, no terms are value and also stuck state.
+	\begin{lemma}[determinacy of call-by-name reduction]
+	\begin{itemize}
+		\item $\CALLBYNAME$ is partial function
+		\item If $E_\mathrm{n}[x]=E'_\mathrm{n}[y]$ then $x=y$
+		\item For any term $M$, \alert{exactly one} of the following holds:
+			\begin{enumerate}
+				\item $M$ is a value
+				\item $M=E_\mathrm{n}[x]$ for some $E_\mathrm{n}$ and $x$
+				\item $M \CALLBYNAME N$ for some $N$
+			\end{enumerate}
+	\end{itemize}
+	\end{lemma}
+\end{frame}
+
+\begin{frame}
+	% Now, I'd like to introduce a important property, standardization theorem.
+	% It means that any reduction sequences are sortable by reduction position in left-to-right, outside-to-inside order.
+	\frametitle{Standardization theorem [Curry\&Feys 1958]}
+	\Large
+	\begin{definition}[standard reduction sequence]
+		A reduction sequence $M_1\xrightarrow[\Delta_1]{\beta}M_2\xrightarrow[\Delta_2]{\beta} \cdots \xrightarrow[\Delta_{n-1}]{\beta} M_n$
+		is \textit{standard} if every $\Delta_i$ is outer and lefter than $\Delta_{i+1}$
+	\end{definition}
+	\begin{theorem}[standardization]
+		If $M\RTCLOSFULLBETA N$, then there is a standard reduction sequence from $M$ to $N$
+	\end{theorem}
+\end{frame}
+
+\begin{frame}
+	% Standardization theorem gives two important corollaries.
+	% First, the termination of call-by-name reduction:
+	% terms which are evaluable by full-beta reduction, are also evaluable by call-by-name reduction.
+	% Second, the termination of the composition of call-by-name reduction and multi-step full-beta reductions:
+	% If M is evaluable, any reductions beginning at M always terminate despite non-determinacy.
+	% These corollaries are used for our proof of the correspondence with call-by-need.
+	\frametitle{Corollaries}
+	\Large
+	\begin{corollary}[termination of $\CALLBYNAME$]
+		If $M \RTCLOSFULLBETA V$ then, $M \RTCLOSCALLBYNAME V'$ for some $N$
+	\end{corollary}
+	\begin{corollary}[termination of ${\CALLBYNAME}\circ{\RTCLOSFULLBETA}$]
+		If $M \RTCLOSFULLBETA V$, then
+		$M$ is terminating by ${\CALLBYNAME}\circ{\alert{\RTCLOSFULLBETA}}$
+	\end{corollary}
+	\begin{itemize}
+		\item Used for our proof of the correpondence with call-by-need
+	\end{itemize}
+\end{frame}
+
+\begin{frame}
+	\frametitle{Call-by-need $\lambda$-calculus [Ariola+ 1995]}
+	% The definition of second target language, Ariola and Felleisen's call-by-need lambda calculus is as follows.
+	% A syntactic form let x = M in N is introduced for representing M contained thunk is referenced as x by N.
+	% The reduction rule (I) corresponding with function calls create thunk instead of substituting.
+	% The content of a thunk is reduced when needed.
+	% And be substituted if evaluated.
+	% Now, we define reductions made from specific rules.
+	% Arrow I is reduction only using rule (I).
+	% This reduction corresponds actual reduction.
+	% Arrow VCA is reduction only using rule (I), (C) and (A).
+	% This reduction is administrative.
+	{\large
+		\vspace{-1cm}
+		\[\begin{array}{llcl}
+			\mbox{Terms} & M,N & \vcentcolon\vcentcolon = & x~|~V~|~M~N~|~\LET{x}{M}{N} \\
+			\mbox{Values} & V & \vcentcolon\vcentcolon = & \lambda x.~M \\
+			\mbox{Answers} & A & \vcentcolon\vcentcolon = & V~|~\LET{x}{M}{A} \\
+			\mbox{Evalctx} & E,E' & \vcentcolon\vcentcolon = & [] ~|~ E~M ~|~\LET{x}{M}{E} \\
+			& & | & \LET{x}{E}{E'[x]} \\
+		\end{array}\] }
+	\vspace{-3mm}
+	{\large
+		\[ \begin{array}{ll}
+			\alert{(I)} & \alert{(\lambda x.M)N} \alert{\rightarrow} \alert{\LET{x}{N}{M}} \\
+			(V) & \LET{x}{V}{E[x]} \rightarrow \LET{x}{V}{E[V]} \\
+			(C) & (\LET{x}{M}{A})~N \rightarrow \LET{x}{M}{A~N} \\
+			(A) & \LET{y}{(\LET{x}{M}{A})}{E[y]} \\
+					& \rightarrow \LET{x}{M}{\LET{y}{A}{E[y]}} \\
+		\end{array}\]}
+	\vspace{-3mm}
+	{\normalsize
+		\[ \begin{array}{ll}
+			\CALLBYNEEDI & \mbox{\alert{reduction only using (I)}}\\
+			\CALLBYNEEDVCA & \mbox{reduction only using (V), (C) and (A) (administrative)}
+		\end{array} \]}
+\end{frame}
+
+\begin{frame}
+	% Call-by-need reduction is also deterministic.
+	\begin{lemma}[determinacy of call-by-need reduction]
+	\begin{itemize}
+		\item $\CALLBYNEEDI$ is a partial function
+		\item $\CALLBYNEEDVCA$ is a partial function
+		\item If $E[x]=E'[y]$ then $x=y$
+		\item For any term $M$, \alert{exactly one} of the following holds:
+			\begin{enumerate}
+				\item $M$ is an answer
+				\item $M=E[x]$ for some $E$ and $x$
+				\item $M\CALLBYNEEDI N$ for some $N$
+				\item $M\CALLBYNEEDVCA N$ for some $N$
+			\end{enumerate}
+	\end{itemize}
+	\end{lemma}
+\end{frame}
+
+% Next, I'd like to talk about the subject of this presentation, simplified proof of the correspondence.
+\section{Simplified proof of the correspondence}
+
+\begin{frame}[fragile]
+	% Let us define the correspondence of terms by let expansion.
+	% It's almost equivalent to Maraist et alii's definition expect marked redexes.
+	\Large
+	\begin{definition}[correspondence of terms]
+		$\pitchfork : \mbox{call-by-need terms} \rightarrow \mbox{call-by-name terms}$ \\
+	$\begin{array}{rcl}
+		\EXPANDLET{x} & = & x \\
+		\EXPANDLET{(\lambda x. M)} & = & \lambda x. \EXPANDLET{M} \\
+		\EXPANDLET{(M~N)} & = & \EXPANDLET{M}~\EXPANDLET{N} \\
+		\EXPANDLET{(\LET{x}{M}{N})} & = & \EXPANDLET{N}[x \mapsto \EXPANDLET{M}] \\
+	\end{array}$
+	\end{definition}
+	\begin{itemize}
+		\item Expands $\mathbf{let}$
+		\item Equivalent to [Maraist+ 1998] \\(except ``marked redexes'')
+	\end{itemize}
+\end{frame}
+
+\begin{frame}
+	% Now, the main theorem, correspondence of call-by-need with call-by-name is stated as follows.
+	% Forward direction, soundness of call-by-need is
+	% ``If m is evaluated to an answer, M pitchfork is evaluable''.
+	% Backward direction, completeness of call-by-need is
+	% ``If M pitchfork is evaluated, M is evaluable to an answer''.
+	% Note that the correspondence between the answer and the values also holds.
+	\frametitle{Main theorem: correspondence of call-by-need with call-by-name}
+	\Large
+	\begin{theorem}[soundness of $\CALLBYNEED$]
+		If $M\RTCLOSCALLBYNEED A$, then $\EXPANDLET{M}\RTCLOSCALLBYNAME V$ for some $V$
+	\end{theorem}
+	\begin{theorem}[completeness of $\CALLBYNEED$]
+		If $\EXPANDLET{M}\RTCLOSCALLBYNAME V$, then $M\RTCLOSCALLBYNEED A$ for some $A$
+	\end{theorem}
+	\begin{center}
+		\Large (Correspondence between $A$ and $V$ also holds)
+	\end{center}
+\end{frame}
+
+\begin{frame}[fragile]
+	% Let us reference previous researches
+	% Ariola and Felleisen's proof is not suitable for formal verification because it's based on informally defined term graphs and their correspondence.
+	% Maraist et alii's proof is convenient for neither mechanization nor paper-and-pencil due to complicated ``marked reduction'' and explicit treatment of reduction position
+	% So we gave a simpler proof!
+	\frametitle{Cf. previous researches}
+	\begin{itemize}
+		\item Ariola and Felleisen [1997]
+			\begin{itemize}
+				\item Based on informally defined term graphs and their correspondence
+			\end{itemize}
+	\end{itemize}
+	\begin{itemize}
+		\item Maraist et al. [1998]
+			\begin{itemize}
+				\item Complicated ``marked reduction'' and explicit treatment of reduction position
+			\end{itemize}
+	\end{itemize}
+	\begin{center}
+		\begin{minipage}{.67\linewidth}
+			\begin{block}{}
+				\LARGE
+				We give a \alert{simpler proof}!
+			\end{block}
+		\end{minipage}
+	\end{center}
+\end{frame}
+
+\begin{frame}
+	% I'd like to explain our proof.
+	% For preparation, we state the lemmma, single-step correspondence.
+	% Answers correspond value.
+	% Stuck states in call-by-need correspond stuck states in call-by-name.
+	% Arrow VCA is administrative.
+	% Arrow I corresponds the composition of call-by-name reduction and additional full-beta reductions.
+	\frametitle{Our proof}
+	\begin{lemma}[single-step correspondence]
+	\begin{itemize}
+		\item $\EXPANDLET{A}$ is a value
+		\item For any $E$ and $x$, there exists $E_\mathrm{n}$ such that $\EXPANDLET{E[x]} = E_\mathrm{n}[x]$
+		\item If $M \CALLBYNEEDVCA N$ then \alert{$\EXPANDLET{M} = \EXPANDLET{N}$}
+		\item If $M \CALLBYNEEDI N$ then $\EXPANDLET{M}{\CALLBYNAME}\circ{\alert{\RTCLOSFULLBETA}} \EXPANDLET{N}$
+	\end{itemize}
+	\end{lemma}
+\end{frame}
+
+\begin{frame}
+	% The forward direction of main theorem, soundness of call-by-need is easily proved.
+	% By assumption, M pitchfork is reduced to A pitchfork by multi-step full-beta reduction
+	% Since A is an answer, A pitchfork is a value
+	% Hence M pitchfork is evaluated by the termination of call-by-name reduction
+	\frametitle{Proof of soundness}
+	\begin{proof}[]
+		\Large
+		\[\xymatrix{
+			M \ar@{->>}[rrrr]^-{\mathrm{need}} \ar@{.>}[d]_-\pitchfork & & & & A \ar@{.>}[d]_-\pitchfork \\
+			\EXPANDLET{M} \ar@{->>}[rrrr]_-{\beta} \ar@{->>}@/_10pt/@[red][rrrd]_-{\alert{\mathrm{name}}} & & & & \EXPANDLET{A} \\
+			& & & \exists V &
+		} \]
+
+		Since $A$ is an answer, $\EXPANDLET{A}$ is a value \\
+		Hence $\EXPANDLET{M}\RTCLOSCALLBYNAME V$ by the termination of $\CALLBYNAME$
+	\end{proof}
+\end{frame}
+
+\begin{frame}
+	\frametitle{Completeness}
+	% The backward direction of main theorem, completeness of call-by-need is harder than forward direction.
+	% Let us review the statement.
+	% If M pitchfork evaluated, then M evaluable to a answer.
+	% The difficulties are twofold.
+	% First, administrative reduction might not terminate.
+	% Second, arrow I corresponds the composition of call-by-need reduction and multi-step full-beta reduction.
+	% That is bodies of lambda abstraction may be reduced.
+	\Large
+	\vspace{-7mm}
+	\begin{center}
+		\begin{minipage}{.65\linewidth}
+			\begin{block}{}
+				If $\EXPANDLET{M}\RTCLOSCALLBYNAME V$ then $M\RTCLOSCALLBYNEED A$ \\
+			\end{block}
+		\end{minipage}
+	\end{center}
+	\vfill
+	Difficulties:
+	\begin{itemize}
+		\item Administrative reductions might not terminate
+			\begin{itemize}
+				\item If $M\CALLBYNEEDVCA N$ then $\EXPANDLET{M}=\EXPANDLET{N}$
+			\end{itemize}
+		\item Redexes shared by \textbf{let} are reduced at once
+			\begin{itemize}
+				\item $M\CALLBYNEEDI N$ implies $\EXPANDLET{M}{\CALLBYNAME}\circ{\alert{\RTCLOSFULLBETA}}\EXPANDLET{N}$
+					\begin{itemize}
+						\item Bodies of $\lambda$-abstraction can be reduced
+					\end{itemize}
+			\end{itemize}
+	\end{itemize}
+\end{frame}
+
+\begin{frame}
+	% To solve the first difficulty, we show the normalization of administrative reduction.
+	% This lemma is proved by a variant of Maraist et alii's weighting.
+	\Large
+	\begin{lemma}[normalization of $\CALLBYNEEDVCA$]
+		By a variant of {[Maraist+ 1998]}'s weighting:
+		{\normalsize \[ \begin{array}{rcl}
+		\SIZE{x}{s} & = & s(x) \\
+		\SIZE{\lambda x. M}{s} & = & \SIZE{M}{s \circ [x \mapsto 1]} \\
+		\SIZE{M~N}{s} & = & 2\SIZE{M}{s}+2\SIZE{N}{s} \\
+		\SIZE{\LET{x}{M}{N}}{s} & = & 2\SIZE{M}{s}+\SIZE{N}{s \circ [x \mapsto 1+\SIZE{M}{s}]}
+		\end{array} \]}
+		$M\CALLBYNEEDVCA N$ implies $\SIZE{M}{s}>\SIZE{N}{s}$
+	\end{lemma}
+\end{frame}
+
+\begin{frame}
+	% Now, I'd like to show the completeness of call-by-need.
+	% First, we show the call-by-need reduction of M is normalizing.
+	% Since call-by-need reduction corresponds the union of arrow I and arrow VCA, multi-step call-by-need reduction corresponds the repetition of the composition of multi-step arrow VCA and arrow I.
+	% Note that arrow VCA is administrative reduction and arrow I corresponds the composition of call-by-name reduction and multi-step full-beta reduction.
+	% Because M pitchfork is evaluable by full-beta reduction, M pitchfork is terminating by the composition of call-by-name reduction and multi-step full-beta reduction.
+	% Namely, induction on derivation is available.
+	\large
+	\begin{textblock*}{\linewidth}(1em, 0pt)
+		\begin{proof}[Proof (completeness of call-by-need) (1/2)]
+			Assume $\EXPANDLET{M}\RTCLOSCALLBYNAME V$, show $M\RTCLOSCALLBYNEED A$
+			\begin{center}
+				\begin{minipage}{.95\linewidth}
+					\begin{beamercolorbox}[shadow=true, rounded=true]{frametitle}
+						First, we show call-by-need reduction of $M$ is normalizing
+					\end{beamercolorbox}
+				\end{minipage}
+			\end{center}
+			\vspace{-5mm}
+			\only<2-4>{
+				\begin{center}
+					\begin{minipage}{.95\linewidth}
+						\begin{beamercolorbox}[shadow=true, rounded=true]{frametitle}
+							\only<2>{${\RTCLOSCALLBYNEED} = \RTCLOS{({\CALLBYNEEDI}\cup{\CALLBYNEEDVCA})} = \RTCLOS{({\RTCLOSCALLBYNEEDVCA}\circ\CALLBYNEEDI)}$ holds}
+							\only<3>{
+								\hspace{-5mm}
+								${\CALLBYNEEDVCA}$ is an administrative reduction
+
+								${\CALLBYNEEDI}$ corresponds ${\CALLBYNAME}\circ{\RTCLOSFULLBETA}$}
+							\only<4>{
+								\hspace{-6mm}
+								By $\EXPANDLET{M} \RTCLOSFULLBETA V$, $\EXPANDLET{M}$ is terminating by ${\CALLBYNAME}\circ{\RTCLOSFULLBETA}$ (= induction on derivation is available)}
+						\end{beamercolorbox}
+					\end{minipage}
+				\end{center}
+				\vspace{-5mm}}
+			\phantom\qedhere
+		\end{proof}
+	\end{textblock*}
+	\begin{textblock*}{0.6\linewidth}(100pt, 190pt)
+		\centering
+		\only<1>{
+			$\xymatrix{
+				M \ar@{->}[rr]^-{\mathrm{need}} & & \ar@{--}[r] & \ar@{->}[rr]^-{\mathrm{need}} & & \\
+				&
+			}$}
+		\only<2>{
+			$\xymatrix{
+				M \ar@{->>}@[red][r]^-{\alert{\mathrm{VCA}}} & \ar@[red][r]^-{\alert{\mathrm{I}}} & \ar@[red]@{--}[r] & \ar@[red]@{->>}[r]^-{\alert{\mathrm{VCA}}} & \ar@[red][r]^-{\alert{\mathrm{I}}} & \\
+				&
+			}$}
+		\only<3>{
+			$\xymatrix{
+				M \ar@{->>}@[red][r]^-{\alert{\mathrm{VCA}}} \ar@{.>}[d]_-\pitchfork & \ar@[red][r]^-{\alert{\mathrm{I}}} \ar@/_10pt/@{.>}[ld]^-\pitchfork & \ar@{.>}[d]^-\pitchfork \ar@[red]@{--}[r] & \ar@[red]@{->>}[r]^-{\alert{\mathrm{VCA}}} \ar@{.>}[d]_-\pitchfork & \ar@[red][r]^-{\alert{\mathrm{I}}} & N \ar@{.>}[d]^-\pitchfork \ar@/_10pt/@{.>}[ld]_-\pitchfork \\
+				\EXPANDLET{M} \ar[r]^-{\mathrm{name}} & \ar@{->>}[r]^-{\beta} & \ar@{--}[r] & \ar[r]^-{\mathrm{name}} & \ar@{->>}[r]^-{\beta} & \EXPANDLET{N} \\
+			}$}
+		\only<4>{
+			$\xymatrix{
+				M \ar@{->>}@[red][r]^-{\alert{\mathrm{VCA}}} \ar@{.>}[d]_-\pitchfork & \ar@[red][r]^-{\alert{\mathrm{I}}} \ar@/_10pt/@{.>}[ld]^-\pitchfork & \ar@{.>}[d]^-\pitchfork \ar@[red]@{--}[r] & \ar@[red]@{->>}[r]^-{\alert{\mathrm{VCA}}} \ar@{.>}[d]_-\pitchfork & \ar@[red][r]^-{\alert{\mathrm{I}}} & N / \ar@{.>}[d]^-\pitchfork \ar@/_10pt/@{.>}[ld]_-\pitchfork \\
+				\EXPANDLET{M} \ar[r]^-{\mathrm{name}} & \ar@{->>}[r]^-{\beta} & \ar@{--}[r] & \ar[r]^-{\mathrm{name}} & \ar@{->>}[r]^-{\beta} & \EXPANDLET{N}/ \\
+			}$}
+	\end{textblock*}
+\end{frame}
+
+\begin{frame}
+	% Next, we show the normal form N of M is an answer.
+	% The normal form N is an answer of stuck state.
+	% Assume N is stuck state, show it leads to contradiction.
+	% By singlestep correspondence, M pitchfork is reduced into N pitchfork
+	% E[x] pitchfork is also stuck state E_n[x]
+	% By confluence of full-beta reduction, V and E_n[x] is conflate into L.
+	% Full-beta reduction preserves valueness and stuckness in call-by-name.
+	% Namely, L is a value and also stuck state.
+	% It leads to contradiction.
+	\large
+	\begin{textblock*}{\linewidth}(1em, 0pt)
+		\begin{proof}[Proof (completeness of call-by-need) (2/2)]
+			\begin{center}
+				\begin{minipage}{.95\linewidth}
+					\begin{beamercolorbox}[shadow=true, rounded=true]{frametitle}
+						Next, show normal form $N$ of $M$ is an answer
+					\end{beamercolorbox}
+				\end{minipage}
+			\end{center}
+			\only<2->{
+				\vspace{-5mm}
+				\begin{center}
+					\begin{minipage}{.95\linewidth}
+						\begin{beamercolorbox}[shadow=true, rounded=true]{frametitle}
+							\only<2>{Normal form $N$ is an answer or stuck state $E[x]$}
+							\only<3>{\hspace{-1.5mm}Assume $N$ is stuck state, show it leads to contradiction}
+							\only<4-5>{\hspace{-3mm}By single-step correspondence:}
+							\only<6>{\hspace{-4.5mm}By assumption:}
+							\only<7>{\hspace{-6mm}By confluence of $\FULLBETA$:}
+							\only<8>{\hspace{-7.5mm}$\FULLBETA$ preserves valueness and stuckness in call-by-name}
+						\end{beamercolorbox}
+					\end{minipage}
+				\end{center}}
+			\only<1-7>{\vspace{-5mm}\phantom\qedhere}
+			\only<8>{\qedhere}
+		\end{proof}
+	\end{textblock*}
+	\begin{textblock*}{0.6\linewidth}(50pt, 150pt)
+		\centering
+		\only<1>{
+			$\xymatrix{
+				& & M \ar@{->>}[rd]^-{\mathrm{need}}\\
+				& & & N \\
+				&
+			}$}
+		\only<2>{
+			$\xymatrix{
+				& & M \ar@{->>}[rd]^-{\mathrm{need}}\\
+				& & & N=A\vee N=E[x]  \\
+				&
+			}$}
+		\only<3>{
+			$\xymatrix{
+				& & M \ar@{->>}[rd]^-{\mathrm{need}}\\
+				& & & N=E[x]  \\
+				&
+			}$}
+		\only<4>{
+			$\xymatrix{
+				& \EXPANDLET{M} \ar@{->>}[rd]^-\beta & M \ar@{.>}[l]_-{\pitchfork} \ar@{->>}[rd]^-{\mathrm{need}}\\
+				& & \EXPANDLET{(E[x])} & N=E[x] \ar@{.>}[l]^-{\pitchfork} \\
+				&
+			}$}
+		\only<5>{
+			$\xymatrix{
+				& \EXPANDLET{M} \ar@{->>}[rd]^-\beta & M \ar@{.>}[l]_-{\pitchfork} \ar@{->>}[rd]^-{\mathrm{need}}\\
+				& & \alert{E_\mathrm{n}[x]} & N=E[x] \ar@{.>}[l]^-{\pitchfork} \\
+				&
+			}$}
+		\only<6>{
+			$\xymatrix{
+				& \EXPANDLET{M} \ar@{->>}[rd]^-\beta \ar@{->>}[ld]_-{\mathrm{name}} & M \ar@{.>}[l]_-{\pitchfork} \ar@{->>}[rd]^-{\mathrm{need}}\\
+				V & & E_\mathrm{n}[x] & N=E[x] \ar@{.>}[l]^-{\pitchfork} \\
+				&
+			}$}
+		\only<7>{
+			$\xymatrix{
+				& \EXPANDLET{M} \ar@{->>}[rd]^-\beta \ar@{->>}[ld]_-{\mathrm{name}} & M \ar@{.>}[l]_-{\pitchfork} \ar@{->>}[rd]^-{\mathrm{need}}\\
+				V \ar@{-->>}[rd]_-\beta & & E_\mathrm{n}[x] \ar@{-->>}[ld]^-\beta & N=E[x] \ar@{.>}[l]^-{\pitchfork} \\
+				& L
+			}$}
+		\only<8>{
+			$\xymatrix{
+				& \EXPANDLET{M} \ar@{->>}[ld]_-{\mathrm{name}} \ar@{->>}[rd]^-\beta & M \ar@{.>}[l]_-{\pitchfork} \ar@{->>}[rd]^-{\mathrm{need}}\\
+				V \ar@{-->>}[rd]_-\beta & & E_\mathrm{n}[x] \ar@{-->>}[ld]^-\beta & N=E[x] \ar@{.>}[l]^-{\pitchfork} \\
+				& L=V'=E_\mathrm{n}'[x] \\
+			}$}
+	\end{textblock*}
+\end{frame}
+
+% Next, I'd like to talk about Coq formalization.
+\section{Coq formalization}
+
+\begin{frame}[fragile]
+	% Our formalization is almost straightforward, expect treatment of evaluation contexts.
+	% Let us show the determinacy of call-by-need reduction by induction on M.
+	\frametitle{Coq formalization}
+	\Large Almost straightforward, expect treatment of evaluation contexts
+\begin{lstlisting}
+Lemma answer_or_stuck_or_reducible M :
+  answer M
+  ∨ (∃ E x,
+    evalctx E ∧ M = E.[tvar x] ∧ bv E ≦ x)
+  ∨ (∃ E L N,
+    evalctx E ∧ M = E.[L] ∧ reduceI L N)
+  ∨ (∃ E L N,
+    evalctx E ∧ M = E.[L] ∧ reduceVCA L N).
+\end{lstlisting}
+	\begin{itemize}
+		\item Try induction on $M$
+	\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+	% The first case is variable.
+	% It is trivial from E equals hole.
+	\frametitle{Case $M=x$}
+\begin{lstlisting}
+x : var
+============================
+answer (tvar x)
+∨ (∃ E y, evalctx E ∧ tvar x = E.[tvar y]
+  ∧ bv E ≦ x)
+∨ (∃ E L N, evalctx E ∧ tvar x = E.[L]
+  ∧ reduceI L N)
+∨ (∃ E L N, evalctx E ∧ tvar x = E.[L]
+  ∧ reduceVCA L N).
+\end{lstlisting}
+	\begin{itemize}
+		\item Trivial from $E = []$
+	\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+	% However, automated reasoning fails.
+	\frametitle{Case $M=x$}
+	\begin{itemize}
+		\item However, automated reasoning fails
+	\end{itemize}
+\begin{lstlisting}
+Coq < eauto.
+
+x : var
+============================
+answer (tvar x)
+∨ (∃ E y, evalctx E ∧ tvar x = E.[tvar y]
+  ∧ bv E ≦ x)
+∨ (∃ E L N, evalctx E ∧ tvar x = E.[L]
+  ∧ reduceI L N)
+∨ (∃ E L N, evalctx E ∧ tvar x = E.[L]
+  ∧ reduceVCA L N).
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+	% Why reasoning fails?
+	% To prove the subgoal, we must find E such that x = E.[y]
+	% Since hole filling is implemented as function, higher order pattern matching is needed!
+	\frametitle{Why fails?}
+\Large
+To prove...
+\begin{lstlisting}
+∃ E y, evalctx E ∧
+  tvar x = E.[tvar y] ∧ bv E ≦ x
+\end{lstlisting}
+...we must find $E$ such that
+\begin{lstlisting}
+tvar x = E.[tvar y]
+\end{lstlisting}
+	\vfill
+	\begin{center}{\fontsize{30pt}{25pt}\selectfont $\Downarrow$}\end{center} % XXX 雑
+	\vfill
+	\begin{center}
+		Higher order pattern matching required!
+	\end{center}
+	\vfill
+\end{frame}
+
+\begin{frame}
+	% Our solution is the elimination of evaluation contexts.
+	% we expand evaluation contexts into reductions,
+	% introduce stuckness predicate,
+	% and approximate the reduction rule (V) by substitution.
+	% Note that the correspondence in original semantics is also proved.
+	\frametitle{Solution: eliminate evaluation contexts}
+	\vspace{-5mm}
+	\begin{itemize}
+		\item Expand evaluation contexts into reductions
+			\begin{itemize}
+				\item $\FULLBETA$, $\CALLBYNAME$, $\CALLBYNEEDI$ and $\CALLBYNEEDVCA$
+			\end{itemize}
+		\item Introduce stuckness predicate
+			\begin{itemize}
+				\item $\STUCK{x}{M}~(\Leftrightarrow \exists E. M=E_\mathrm{n}[x])$ and $\DEMAND{x}{M}~(\Leftrightarrow \exists E. M=E[x])$
+			\end{itemize}
+		\item Approximate\\
+			${\LET{x}{V}{E[x]}}\rightarrow{\LET{x}{V}{E[V]}}$\\
+			by substitution\\
+			${\LET{x}{V}{E[x]}}\rightarrow{E[x][x\mapsto V]}$\\
+	\end{itemize}
+	\begin{flushright}
+		(N.B. correspondence in original semantics is also proved)
+	\end{flushright}
+\end{frame}
+
+\begin{frame}[fragile]
+	% Thanks to the elimination of evaluation contexts, proof automation succeeds as follows
+	\frametitle{Automation succeeds!}
+\begin{lstlisting}
+Lemma answer_or_stuck_or_reducible M :
+  answer M \/
+  (exists x, needs M x) \/
+  (exists N, reduceI M N) \/
+  (exists N, reduceVCA M N).
+Proof.
+  induction M as
+    [|? [Hanswer|[[]|[[]|[]]]]
+    ||? [Hanswer|[[]|[[]|[]]]]
+      ? [|[[[]]|[[]|[]]]]]; eauto 6;
+    inversion Hanswer; subst; eauto 6.
+Qed.
+\end{lstlisting}
+\end{frame}
+
+% Finally, I'd like to conclude.
+\section{Conclusion}
+
+\begin{frame}
+	\frametitle{Conclusion}
+	% We formalized Ariola and felleisen's call-by-need lambda calculus in Coq proof assistant,
+	% gave standardization theorem based simplified proof of correspondence of call-by-name, and verified in Coq.
+	% Thank you for listening.
+	\begin{itemize}
+		\item Formalized call-by-need $\lambda$-calculus \mbox{[Ariola+ 1995]} in the Coq proof assistant
+		\vfill
+		\item Gave \alert{simplified proof} of correspondence with call-by-name, and verified in Coq
+			\begin{itemize}
+				\item Using standardization theorem [Curry\&Feys 1958]
+			\end{itemize}
+	\end{itemize}
+\end{frame}
+
+\end{document}
+
