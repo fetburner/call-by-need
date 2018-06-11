@@ -364,7 +364,7 @@
 	\frametitle{Corollaries}
 	\Large
 	\begin{corollary}[termination of $\CALLBYNAME$]
-		If $M \RTCLOSFULLBETA V$ then, $M \RTCLOSCALLBYNAME V'$ for some $N$
+		If $M \RTCLOSFULLBETA V$ then, $M \RTCLOSCALLBYNAME V'$ for some $V'$
 	\end{corollary}
 	\begin{corollary}[termination of ${\CALLBYNAME}\circ{\RTCLOSFULLBETA}$]
 		If $M \RTCLOSFULLBETA V$, then
@@ -612,7 +612,7 @@
 				\begin{center}
 					\begin{minipage}{.95\linewidth}
 						\begin{beamercolorbox}[shadow=true, rounded=true]{frametitle}
-							\only<2>{${\RTCLOSCALLBYNEED} = \RTCLOS{({\CALLBYNEEDI}\cup{\CALLBYNEEDVCA})} = \RTCLOS{({\RTCLOSCALLBYNEEDVCA}\circ\CALLBYNEEDI)}$ holds}
+							\only<2>{${\RTCLOSCALLBYNEED} = \RTCLOS{({\CALLBYNEEDI}\cup{\CALLBYNEEDVCA})} = \RTCLOS{({\RTCLOSCALLBYNEEDVCA}\circ\CALLBYNEEDI)}\circ{\RTCLOSCALLBYNEEDVCA}$ holds}
 							\only<3>{
 								\hspace{-5mm}
 								${\CALLBYNEEDVCA}$ is an administrative reduction
@@ -628,7 +628,7 @@
 			\phantom\qedhere
 		\end{proof}
 	\end{textblock*}
-	\begin{textblock*}{0.6\linewidth}(100pt, 190pt)
+	\begin{textblock*}{0.6\linewidth}(80pt, 190pt)
 		\centering
 		\only<1>{
 			$\xymatrix{
@@ -637,17 +637,17 @@
 			}$}
 		\only<2>{
 			$\xymatrix{
-				M \ar@{->>}@[red][r]^-{\alert{\mathrm{VCA}}} & \ar@[red][r]^-{\alert{\mathrm{I}}} & \ar@[red]@{--}[r] & \ar@[red]@{->>}[r]^-{\alert{\mathrm{VCA}}} & \ar@[red][r]^-{\alert{\mathrm{I}}} & \\
+				M \ar@{->>}@[red][r]^-{\alert{\mathrm{VCA}}} & \ar@[red][r]^-{\alert{\mathrm{I}}} & \ar@[red]@{--}[r] & \ar@[red]@{->>}[r]^-{\alert{\mathrm{VCA}}} & \ar@[red][r]^-{\alert{\mathrm{I}}} & \ar@[red]@{->>}[r]^-{\alert{\mathrm{VCA}}} & \\
 				&
 			}$}
 		\only<3>{
 			$\xymatrix{
-				M \ar@{->>}@[red][r]^-{\alert{\mathrm{VCA}}} \ar@{.>}[d]_-\pitchfork & \ar@[red][r]^-{\alert{\mathrm{I}}} \ar@/_10pt/@{.>}[ld]^-\pitchfork & \ar@{.>}[d]^-\pitchfork \ar@[red]@{--}[r] & \ar@[red]@{->>}[r]^-{\alert{\mathrm{VCA}}} \ar@{.>}[d]_-\pitchfork & \ar@[red][r]^-{\alert{\mathrm{I}}} & N \ar@{.>}[d]^-\pitchfork \ar@/_10pt/@{.>}[ld]_-\pitchfork \\
+				M \ar@{->>}@[red][r]^-{\alert{\mathrm{VCA}}} \ar@{.>}[d]_-\pitchfork & \ar@[red][r]^-{\alert{\mathrm{I}}} \ar@/_10pt/@{.>}[ld]^-\pitchfork & \ar@{.>}[d]^-\pitchfork \ar@[red]@{--}[r] & \ar@[red]@{->>}[r]^-{\alert{\mathrm{VCA}}} \ar@{.>}[d]_-\pitchfork & \ar@[red][r]^-{\alert{\mathrm{I}}} \ar@/_10pt/@{.>}[ld]^-\pitchfork & \ar@[red]@{->>}[r]^-{\alert{\mathrm{VCA}}} \ar@{.>}[d]_-\pitchfork & N \ar@/_10pt/@{.>}[ld]^-\pitchfork\\
 				\EXPANDLET{M} \ar[r]^-{\mathrm{name}} & \ar@{->>}[r]^-{\beta} & \ar@{--}[r] & \ar[r]^-{\mathrm{name}} & \ar@{->>}[r]^-{\beta} & \EXPANDLET{N} \\
 			}$}
 		\only<4>{
 			$\xymatrix{
-				M \ar@{->>}@[red][r]^-{\alert{\mathrm{VCA}}} \ar@{.>}[d]_-\pitchfork & \ar@[red][r]^-{\alert{\mathrm{I}}} \ar@/_10pt/@{.>}[ld]^-\pitchfork & \ar@{.>}[d]^-\pitchfork \ar@[red]@{--}[r] & \ar@[red]@{->>}[r]^-{\alert{\mathrm{VCA}}} \ar@{.>}[d]_-\pitchfork & \ar@[red][r]^-{\alert{\mathrm{I}}} & N / \ar@{.>}[d]^-\pitchfork \ar@/_10pt/@{.>}[ld]_-\pitchfork \\
+				M \ar@{->>}@[red][r]^-{\alert{\mathrm{VCA}}} \ar@{.>}[d]_-\pitchfork & \ar@[red][r]^-{\alert{\mathrm{I}}} \ar@/_10pt/@{.>}[ld]^-\pitchfork & \ar@{.>}[d]^-\pitchfork \ar@[red]@{--}[r] & \ar@[red]@{->>}[r]^-{\alert{\mathrm{VCA}}} \ar@{.>}[d]_-\pitchfork & \ar@[red][r]^-{\alert{\mathrm{I}}} \ar@/_10pt/@{.>}[ld]^-\pitchfork & \ar@[red]@{->>}[r]^-{\alert{\mathrm{VCA}}} \ar@{.>}[d]_-\pitchfork & N/ \ar@/_10pt/@{.>}[ld]^-\pitchfork\\
 				\EXPANDLET{M} \ar[r]^-{\mathrm{name}} & \ar@{->>}[r]^-{\beta} & \ar@{--}[r] & \ar[r]^-{\mathrm{name}} & \ar@{->>}[r]^-{\beta} & \EXPANDLET{N}/ \\
 			}$}
 	\end{textblock*}
@@ -842,6 +842,7 @@ tvar x = E.[tvar y]
 	\vspace{-5mm}
 	\begin{itemize}
 		\item Expand evaluation contexts into reductions
+			\vspace{-5mm}
 			\begin{itemize}
 				\item $\FULLBETA$, $\CALLBYNAME$, $\CALLBYNEEDI$ and $\CALLBYNEEDVCA$
 			\end{itemize}
